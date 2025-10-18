@@ -8,7 +8,6 @@ import SignupScreen from "../screens/authscreens/SignupScreen";
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
-  ForgotPassword: undefined;
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
