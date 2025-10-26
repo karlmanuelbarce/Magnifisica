@@ -2,7 +2,6 @@ import React from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import { MainStackParamList } from "../../navigations/MainStackNavigator"; // Adjust path
-import { Exercise } from "../../types/Exercise"; // Adjust path
 
 // Define the type for this screen's route
 type ExerciseDetailScreenRouteProp = RouteProp<
