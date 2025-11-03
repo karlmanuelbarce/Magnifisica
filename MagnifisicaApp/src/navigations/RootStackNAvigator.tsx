@@ -1,30 +1,31 @@
-// RootStackNavigator.tsx
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
-import { createStackNavigator } from "@react-navigation/stack";
+import { ActivityIndicator, View } from "react-native";
 import AuthStackNavigator from "./AuthStackNavigator";
 import MainStackNavigator from "./MainStackNavigator";
-import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
 
-const Stack = createStackNavigator();
+import { useAuthStore } from "../store/authstore"; // Adjust path if needed
 
 const RootStackNavigator: React.FC = () => {
-  // Set an initializing state whilst Firebase connects
-  const [initializing, setInitializing] = useState(true);
-  const [user, setUser] = useState();
-
-  // Handle user state changes
-  function handleAuthStateChanged(user: any) {
-    setUser(user);
-    if (initializing) setInitializing(false);
-  }
+  // --- THIS IS THE FIX ---
+  // Select each piece of state individually
+  const user = useAuthStore((state) => state.user);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const checkAuth = useAuthStore((state) => state.checkAuth);
+  // --- END OF FIX ---
 
   useEffect(() => {
-    const subscriber = onAuthStateChanged(getAuth(), handleAuthStateChanged);
-    return subscriber; // unsubscribe on unmount
-  }, []);
+    checkAuth();
+  }, [checkAuth]);
 
-  if (initializing) return null;
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       {user ? <MainStackNavigator /> : <AuthStackNavigator />}
