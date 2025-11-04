@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react"; // Import useRef
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   FlatList,
   ActivityIndicator,
   SafeAreaView,
+  Alert, // Import Alert
 } from "react-native";
 import firestore from "@react-native-firebase/firestore";
 import ChallengeCard, { Challenge } from "../components/ChallengeCard"; // Adjust path as needed
@@ -13,6 +14,8 @@ import ChallengeCard, { Challenge } from "../components/ChallengeCard"; // Adjus
 const ChallengeScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
+  // Use a ref to track if this is the first snapshot load
+  const isFirstLoad = useRef(true);
 
   useEffect(() => {
     // Set up a real-time listener for the challenges
@@ -21,6 +24,8 @@ const ChallengeScreen: React.FC = () => {
       .onSnapshot(
         (querySnapshot) => {
           const challengesList: Challenge[] = [];
+
+          // This part still updates your UI with the full list
           querySnapshot.forEach((doc) => {
             challengesList.push({
               id: doc.id,
@@ -28,6 +33,29 @@ const ChallengeScreen: React.FC = () => {
             } as Challenge);
           });
           setChallenges(challengesList);
+
+          if (isFirstLoad.current) {
+            isFirstLoad.current = false; // Mark first load as complete
+          } else {
+            // This is NOT the first load, so check for new documents
+            querySnapshot.docChanges().forEach((change) => {
+              if (change.type === "added") {
+                console.log("New challenge added: ", change.doc.data());
+
+                // Get the new challenge data
+                const newChallenge = change.doc.data();
+
+                // Trigger a simple in-app alert
+                Alert.alert(
+                  "New Challenge!", // Title of the alert
+                  newChallenge.title || "A new challenge is available." // Body of the alert
+                  // (Assuming your challenge document has a 'title' field)
+                );
+              }
+            });
+          }
+          // --- End Notification Logic ---
+
           setLoading(false);
         },
         (error) => {
