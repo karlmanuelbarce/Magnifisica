@@ -42,7 +42,7 @@ const MainTabNavigator = () => {
           tabBarIcon: ({ focused, color, size }) => (
             // EvilIcons has a 'record' icon
             <EvilIcons
-              name={"record"}
+              name={"play"}
               size={size * 1.2} // EvilIcons can be a bit small
               color={color}
             />
