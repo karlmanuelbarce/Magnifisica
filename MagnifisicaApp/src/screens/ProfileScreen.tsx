@@ -32,10 +32,12 @@ interface JoinedChallenge {
   isCompleted: boolean;
   progress: number;
   joinedAt: FirebaseFirestoreTypes.Timestamp;
-  targetMetre?: number; // <-- ADD THIS (make it optional for old data)
+  targetMetre?: number;
+
+  calculatedProgress?: number;
 }
 
-// Add formatDate helper (unchanged)
+// ... (formatDate and chartConfig are unchanged) ...
 const formatDate = (timestamp: FirebaseFirestoreTypes.Timestamp) => {
   if (!timestamp) {
     return "N/A";
@@ -46,9 +48,7 @@ const formatDate = (timestamp: FirebaseFirestoreTypes.Timestamp) => {
   });
 };
 
-// Configuration for the chart (unchanged)
 const chartConfig = {
-  // ... (unchanged)
   backgroundColor: "#ffffff",
   backgroundGradientFrom: "#ffffff",
   backgroundGradientTo: "#ffffff",
@@ -63,7 +63,6 @@ const chartConfig = {
 };
 
 const ProfileScreen: React.FC = () => {
-  // ... (all state hooks are unchanged) ...
   const [loading, setLoading] = useState(true);
   const [chartLabels, setChartLabels] = useState<string[]>([]);
   const [chartData, setChartData] = useState<number[]>([]);
@@ -73,9 +72,7 @@ const ProfileScreen: React.FC = () => {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
 
-  // --- fetchData function is unchanged ---
-  // It will automatically pick up the new 'targetMetre' field
-  // if it exists on the document.
+  // --- 2. UPDATE fetchData FUNCTION (Unchanged from last time) ---
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -84,7 +81,7 @@ const ProfileScreen: React.FC = () => {
         return;
       }
 
-      // 1. Fetch Chart Data (unchanged)
+      // --- 1. Fetch Chart Data (Unchanged) ---
       const labels: string[] = [];
       const data: number[] = [0, 0, 0, 0, 0, 0, 0];
       const dayStartTimestamps: Date[] = [];
@@ -101,12 +98,12 @@ const ProfileScreen: React.FC = () => {
       }
       const queryStartDate = dayStartTimestamps[0];
       const routesRef = firestore().collection("routes");
-      const query = routesRef
+      const routesQuery = routesRef
         .where("userID", "==", user.uid)
         .where("createdAt", ">=", queryStartDate)
         .where("createdAt", "<=", today);
-      const snapshot = await query.get();
-      snapshot.forEach((doc) => {
+      const routesSnapshot = await routesQuery.get();
+      routesSnapshot.forEach((doc) => {
         const route = doc.data();
         const routeDate = route.createdAt.toDate();
         const distanceKm = route.distanceMeters / 1000;
@@ -120,8 +117,7 @@ const ProfileScreen: React.FC = () => {
       setChartLabels(labels);
       setChartData(data);
 
-      // 2. Fetch Joined Challenges (unchanged)
-      const challengesList: JoinedChallenge[] = [];
+      // --- 2. Fetch Joined Challenges (Unchanged) ---
       const challengesSnapshot = await firestore()
         .collection("participants")
         .doc(user.uid)
@@ -129,13 +125,38 @@ const ProfileScreen: React.FC = () => {
         .orderBy("joinedAt", "desc")
         .get();
 
-      challengesSnapshot.forEach((doc) => {
-        challengesList.push({
-          id: doc.id,
-          ...doc.data(),
-        } as JoinedChallenge);
-      });
-      setJoinedChallenges(challengesList);
+      const challengesListWithProgress = await Promise.all(
+        challengesSnapshot.docs.map(async (doc) => {
+          const challenge = {
+            id: doc.id,
+            ...doc.data(),
+          } as JoinedChallenge;
+
+          let totalProgress = 0;
+
+          // --- THIS IS INEFFICIENT ---
+          // It runs this query for every challenge, every time
+          if (!challenge.isCompleted) {
+            const challengeRoutesSnapshot = await firestore()
+              .collection("routes")
+              .where("userID", "==", user.uid)
+              .where("createdAt", ">=", challenge.challengeStartDate)
+              .where("createdAt", "<=", challenge.challengeEndDate)
+              .get();
+
+            challengeRoutesSnapshot.forEach((routeDoc) => {
+              totalProgress += routeDoc.data().distanceMeters;
+            });
+          }
+
+          return {
+            ...challenge,
+            calculatedProgress: totalProgress,
+          };
+        })
+      );
+
+      setJoinedChallenges(challengesListWithProgress);
     } catch (error) {
       console.error("Error fetching profile data:", error);
       Alert.alert(
@@ -170,7 +191,6 @@ const ProfileScreen: React.FC = () => {
   };
 
   const renderChart = () => {
-    // ... (unchanged)
     if (loading) {
       return <ActivityIndicator size="large" color={theme.primary} />;
     }
@@ -192,7 +212,7 @@ const ProfileScreen: React.FC = () => {
     );
   };
 
-  // --- 2. UPDATE renderChallenges ---
+  // --- 3. UPDATE renderChallenges ---
   const renderChallenges = () => {
     if (loading) {
       return <ActivityIndicator size="large" color={theme.primary} />;
@@ -207,27 +227,43 @@ const ProfileScreen: React.FC = () => {
     return (
       <View>
         {joinedChallenges.map((challenge, index) => {
-          // --- Logic to display progress ---
           let progressDisplay;
+          const progressInMeters = challenge.calculatedProgress || 0;
+
+          // --- START OF NEW LOGIC ---
+
+          // Check 1: Is it already marked as completed in the DB?
           if (challenge.isCompleted) {
             progressDisplay = (
               <Text style={styles.challengeStatusComplete}>Completed</Text>
             );
+
+            // Check 2: Does it have a target AND has the calculated progress met it?
+          } else if (
+            challenge.targetMetre &&
+            progressInMeters >= challenge.targetMetre
+          ) {
+            progressDisplay = (
+              <Text style={styles.challengeStatusComplete}>Completed</Text>
+            );
+
+            // Check 3: Does it have a target but progress is not yet met?
           } else if (challenge.targetMetre) {
-            // Check if targetMetre exists (for new data)
-            const progressKm = (challenge.progress / 1000).toFixed(1);
+            const progressKm = (progressInMeters / 1000).toFixed(1);
             const targetKm = (challenge.targetMetre / 1000).toFixed(1);
             progressDisplay = (
               <Text
                 style={styles.challengeStatusActive}
               >{`${progressKm} / ${targetKm} km`}</Text>
             );
+
+            // Check 4: Fallback (e.g., no targetMetre)
           } else {
-            // Fallback for old data without targetMetre
             progressDisplay = (
               <Text style={styles.challengeStatusActive}>In Progress</Text>
             );
           }
+          // --- END OF NEW LOGIC ---
 
           return (
             <View
@@ -246,10 +282,7 @@ const ProfileScreen: React.FC = () => {
                   Ends: {formatDate(challenge.challengeEndDate)}
                 </Text>
               </View>
-              <View style={styles.challengeProgress}>
-                {/* Use the new progressDisplay variable */}
-                {progressDisplay}
-              </View>
+              <View style={styles.challengeProgress}>{progressDisplay}</View>
             </View>
           );
         })}
@@ -262,21 +295,15 @@ const ProfileScreen: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scrollView}>
         <View style={styles.container}>
-          {/* 1. Header */}
+          {/* ... (rest of the render is unchanged) ... */}
           <Text style={styles.title}>Profile</Text>
           {user && <Text style={styles.userEmail}>{user.email}</Text>}
-
-          {/* 2. Activity Card */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Weekly Activity</Text>
             <View style={styles.chartContainer}>{renderChart()}</View>
           </View>
-
-          {/* 3. My Challenges Card */}
           <Text style={styles.sectionTitle}>My Challenges</Text>
           <View style={styles.card}>{renderChallenges()}</View>
-
-          {/* 4. Account Card */}
           <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.card}>
             <TouchableOpacity style={styles.buttonRow} onPress={handleSignOut}>
@@ -303,7 +330,6 @@ const ProfileScreen: React.FC = () => {
 
 // --- Styles (unchanged) ---
 const theme = {
-  // ... (unchanged)
   primary: "#007AFF",
   background: "#F4F5F7",
   card: "#FFFFFF",
