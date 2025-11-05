@@ -17,6 +17,7 @@ import {
 } from "@react-native-firebase/firestore";
 
 // --- 2. Import Notifee ---
+import notifee, { AndroidImportance } from "@notifee/react-native";
 
 import ChallengeCard, { Challenge } from "../components/ChallengeCard"; // Adjust path as needed
 
@@ -24,6 +25,36 @@ import ChallengeCard, { Challenge } from "../components/ChallengeCard"; // Adjus
 const db = getFirestore();
 
 // --- 4. Add Notifee helper function ---
+async function displayNotification(title: string, body: string) {
+  try {
+    // Request permissions (required for iOS)
+    await notifee.requestPermission();
+
+    // Create a channel (required for Android)
+    const channelId = await notifee.createChannel({
+      id: "new-challenge",
+      name: "New Challenges",
+      importance: AndroidImportance.HIGH, // This ensures the notification pops up
+    });
+
+    // Display the notification
+    await notifee.displayNotification({
+      title: title,
+      body: body,
+      android: {
+        channelId,
+        pressAction: {
+          id: "default", // This will open the app when pressed
+        },
+      },
+      ios: {
+        sound: "default",
+      },
+    });
+  } catch (error) {
+    console.error("Error displaying notification:", error);
+  }
+}
 
 const ChallengeScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -32,13 +63,31 @@ const ChallengeScreen: React.FC = () => {
   const isFirstLoad = useRef(true);
 
   useEffect(() => {
-    // --- This code is already correct ---
     const collectionRef = collection(db, "Challenge");
     const subscriber = onSnapshot(
       collectionRef,
       (querySnapshot) => {
         const challengesList: Challenge[] = [];
 
+        // --- MODIFIED: Notification Logic ---
+        // Check for new documents *after* the initial load
+        if (!isFirstLoad.current) {
+          querySnapshot.docChanges().forEach((change: any) => {
+            if (change.type === "added") {
+              console.log("New challenge added: ", change.doc.data());
+              const newChallenge = change.doc.data() as Challenge;
+
+              // Send a notification
+              // Assumes your Challenge object has 'title' and 'description' fields
+              displayNotification(
+                "🚀 New Challenge Available!",
+                newChallenge.title || "Check out the new challenge." // Use challenge title or a fallback
+              );
+            }
+          });
+        }
+
+        // --- This code is still needed to update the UI ---
         querySnapshot.forEach((doc: any) => {
           challengesList.push({
             id: doc.id,
@@ -46,6 +95,12 @@ const ChallengeScreen: React.FC = () => {
           } as Challenge);
         });
         setChallenges(challengesList);
+
+        // After the first-ever snapshot is processed, set this to false
+        if (isFirstLoad.current) {
+          isFirstLoad.current = false;
+        }
+        // --- END OF MODIFICATION ---
 
         setLoading(false);
       },
