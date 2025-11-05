@@ -6,21 +6,19 @@ import {
   PermissionsAndroid,
   Platform,
   Alert,
-  TouchableOpacity, // Import TouchableOpacity
-  SafeAreaView, // Import SafeAreaView
-  Modal, // Import Modal
+  TouchableOpacity,
+  SafeAreaView,
+  Modal,
+  ActivityIndicator, // <-- Import ActivityIndicator
 } from "react-native";
 import MapLibreGL, { LineLayerStyle } from "@maplibre/maplibre-react-native";
 import Geolocation, { GeoPosition } from "react-native-geolocation-service";
-import Ionicons from "react-native-vector-icons/Ionicons"; // Import Icons
+import Ionicons from "react-native-vector-icons/Ionicons";
 
-// --- Firebase Imports ---
 import firestore from "@react-native-firebase/firestore";
+import { useAuthStore } from "../store/authstore";
 
-// --- Zustand Store Import ---
-import { useAuthStore } from "../store/authstore"; // Corrected path
-
-// --- Haversine formula (with dLon typo corrected) ---
+// --- Haversine formula (unchanged) ---
 const haversineDistance = (
   coord1: [number, number],
   coord2: [number, number]
@@ -78,8 +76,8 @@ const RecordScreen = () => {
   const [endPoint, setEndPoint] = useState<[number, number] | null>(null);
   const [totalDistance, setTotalDistance] = useState<number>(0);
   const [recording, setRecording] = useState<boolean>(false);
-  const [isModalVisible, setIsModalVisible] = useState<boolean>(false); // Modal state
-  const [elapsedTime, setElapsedTime] = useState<number>(0); // Timer state
+  const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
 
   const MAPTILER_API_KEY = "LROySEFJDL5ogef2ZsWI";
 
@@ -137,24 +135,21 @@ const RecordScreen = () => {
     };
   }, []);
 
-  // --- Timer Effect ---
+  // --- Timer Effect (unchanged) ---
   useEffect(() => {
     if (recording) {
-      // Start timer
       timerInterval.current = setInterval(() => {
         setElapsedTime((prev) => prev + 1);
       }, 1000);
     } else {
-      // Stop timer
       if (timerInterval.current) clearInterval(timerInterval.current);
     }
     return () => {
-      // Cleanup
       if (timerInterval.current) clearInterval(timerInterval.current);
     };
   }, [recording]);
 
-  // --- Helper to format time ---
+  // --- Helper to format time (unchanged) ---
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
       .toString()
@@ -163,7 +158,7 @@ const RecordScreen = () => {
     return `${mins}:${secs}`;
   };
 
-  // --- Helper to reset all route state ---
+  // --- Helper to reset all route state (unchanged) ---
   const resetRoute = () => {
     setRouteCoords([]);
     setStartPoint(null);
@@ -173,9 +168,9 @@ const RecordScreen = () => {
     lastPointRef.current = null;
   };
 
-  // --- Updated startRecording ---
+  // --- Updated startRecording (unchanged) ---
   const handleStartRecording = () => {
-    resetRoute(); // Clear any previous route data
+    resetRoute();
     Geolocation.getCurrentPosition(
       (position) => {
         const coord: [number, number] = [
@@ -194,7 +189,7 @@ const RecordScreen = () => {
     );
   };
 
-  // --- Updated stopRecording (now shows modal) ---
+  // --- Updated stopRecording (unchanged) ---
   const handleStopRecording = () => {
     setRecording(false);
     recordingRef.current = false;
@@ -203,27 +198,24 @@ const RecordScreen = () => {
       setEndPoint(routeCoords[routeCoords.length - 1]);
     }
 
-    // Check if route is valid, otherwise alert and reset
     if (totalDistance === 0 || !startPoint) {
       Alert.alert(
         "Route too short",
         "No distance was recorded. Route will not be saved."
       );
-      resetRoute(); // Clear the map
+      resetRoute();
       return;
     }
 
-    // Valid route, show confirmation modal
     setIsModalVisible(true);
   };
 
-  // --- NEW: Handle saving the route from the modal ---
+  // --- Handle saving the route (unchanged) ---
   const handleSaveRoute = async () => {
     if (!user || !startPoint || !endPoint) {
       Alert.alert("Error", "Could not save route. User or route data missing.");
       return;
     }
-
     try {
       const routesCollection = firestore().collection("routes");
       await routesCollection.add({
@@ -243,21 +235,24 @@ const RecordScreen = () => {
       Alert.alert("Save Failed", "Could not save your route.");
     } finally {
       setIsModalVisible(false);
-      resetRoute(); // Clear the map after saving
+      resetRoute();
     }
   };
 
-  // --- NEW: Handle discarding the route from the modal ---
+  // --- Handle discarding the route (unchanged) ---
   const handleDiscardRoute = () => {
     setIsModalVisible(false);
-    resetRoute(); // Clear the map
+    resetRoute();
   };
 
-  // Loading screen (unchanged)
+  // Loading screen
   if (!location) {
     return (
-      <View style={styles.page}>
-        <Text>Loading location...</Text>
+      <View style={[styles.page, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={{ color: theme.textSecondary, marginTop: 10 }}>
+          Finding location...
+        </Text>
       </View>
     );
   }
@@ -267,7 +262,7 @@ const RecordScreen = () => {
     <SafeAreaView style={styles.safeArea}>
       <MapLibreGL.MapView
         style={styles.map}
-        mapStyle={`https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_API_KEY}`}
+        mapStyle={`https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${MAPTILER_API_KEY}`} // <-- DESIGN CHANGE
       >
         <MapLibreGL.Camera
           centerCoordinate={[
@@ -278,7 +273,7 @@ const RecordScreen = () => {
         />
         <MapLibreGL.PointAnnotation
           id="currentLocation"
-          key={location.timestamp} // Force re-render
+          key={location.timestamp}
           coordinate={[location.coords.longitude, location.coords.latitude]}
         >
           <View style={styles.marker} />
@@ -290,7 +285,7 @@ const RecordScreen = () => {
             shape={{
               type: "Feature",
               geometry: { type: "LineString", coordinates: routeCoords },
-              properties: {}, // <-- ADD THIS EMPTY OBJECT
+              properties: {},
             }}
           >
             <MapLibreGL.LineLayer id="routeLineLayer" style={lineLayerStyle} />
@@ -298,7 +293,7 @@ const RecordScreen = () => {
         )}
       </MapLibreGL.MapView>
 
-      {/* --- New Control Panel --- */}
+      {/* --- Control Panel --- */}
       <View style={styles.controlPanel}>
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
@@ -319,12 +314,12 @@ const RecordScreen = () => {
           <Ionicons
             name={recording ? "stop" : "play"}
             size={32}
-            color={theme.white}
+            color={recording ? theme.white : theme.textOnPrimary} // <-- DESIGN CHANGE
           />
         </TouchableOpacity>
       </View>
 
-      {/* --- New Confirmation Modal --- */}
+      {/* --- Confirmation Modal --- */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -371,17 +366,19 @@ const RecordScreen = () => {
 
 // --- New Theme & Styles ---
 const theme = {
-  primary: "#007AFF",
+  primary: "#39FF14", // Electric Lime
+  success: "#34C759", // Standard Green (for "Save")
   danger: "#FF3B30",
   white: "#FFFFFF",
-  background: "#F4F5F7",
-  textPrimary: "#111111",
-  textSecondary: "#666666",
-  green: "#34C759",
+  background: "#121212", // Dark background
+  card: "#1E1E1E", // Lighter dark for cards/panels
+  textPrimary: "#E0E0E0", // Light text
+  textSecondary: "#888888", // Muted text
+  textOnPrimary: "#121212", // Dark text for lime buttons
 };
 
 const lineLayerStyle: LineLayerStyle = {
-  lineColor: theme.primary,
+  lineColor: theme.primary, // Lime green
   lineWidth: 4,
   lineCap: "round",
   lineJoin: "round",
@@ -394,7 +391,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.background,
   },
   page: {
-    // (No longer used as root, but kept for loading)
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
@@ -406,7 +402,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: theme.primary,
+    backgroundColor: theme.primary, // Lime green
     borderColor: theme.white,
     borderWidth: 3,
     shadowColor: "#000",
@@ -421,9 +417,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 20,
-    backgroundColor: theme.white,
+    backgroundColor: theme.card, // Dark card
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
+    borderTopColor: "#333333", // Dark border
   },
   statsContainer: {
     flex: 1,
@@ -447,28 +443,29 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: theme.primary,
+    backgroundColor: theme.primary, // Lime green
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: theme.primary, // Green glow
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 6,
   },
   stopButton: {
-    backgroundColor: theme.danger,
+    backgroundColor: theme.danger, // Red
+    shadowColor: theme.danger, // Red glow
   },
   // Modal Styles
   modalBackdrop: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.7)", // Darker backdrop
   },
   modalView: {
     width: "85%",
-    backgroundColor: theme.white,
+    backgroundColor: theme.card, // Dark card
     borderRadius: 20,
     padding: 24,
     alignItems: "center",
@@ -485,6 +482,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "bold",
     marginBottom: 20,
+    color: theme.textPrimary, // Light text
   },
   modalStats: {
     flexDirection: "row",
@@ -515,7 +513,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalButtonDiscard: {
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#333333", // Dark gray
     marginRight: 10,
   },
   modalButtonTextDiscard: {
@@ -524,11 +522,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   modalButtonSave: {
-    backgroundColor: theme.green,
+    backgroundColor: theme.success, // Standard green
     marginLeft: 10,
   },
   modalButtonTextSave: {
-    color: theme.white,
+    color: theme.white, // White text on standard green
     fontWeight: "bold",
     fontSize: 16,
   },

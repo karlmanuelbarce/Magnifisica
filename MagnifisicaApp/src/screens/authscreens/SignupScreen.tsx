@@ -3,21 +3,17 @@ import {
   View,
   Text,
   TextInput,
-  Button,
   StyleSheet,
   TouchableOpacity,
   Alert,
+  ActivityIndicator, // <-- Added for loading state
 } from "react-native";
 import { AuthStackParamList } from "../../navigations/AuthStackNavigator";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-} from "@react-native-firebase/auth";
+import auth from "@react-native-firebase/auth"; // <-- Simplified import
 
 const SignupScreen: React.FC = () => {
-  const auth = getAuth();
   const navigation = useNavigation<StackNavigationProp<AuthStackParamList>>();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,9 +32,9 @@ const SignupScreen: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // ✅ Just create the user. The listener in App.tsx handles navigation.
-      await createUserWithEmailAndPassword(auth, email, password);
-      // You can still show a success alert if you want.
+      await auth().createUserWithEmailAndPassword(email, password);
+      // The auth listener in your RootStack will handle navigation
+      // You can still alert the user of success
       Alert.alert("Account Created", "Your account was created successfully!");
     } catch (error: any) {
       let errorMessage = "An unknown error occurred.";
@@ -57,65 +53,119 @@ const SignupScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Sign Up</Text>
+      <Text style={styles.title}>Create Account</Text>
       <TextInput
         style={styles.input}
         placeholder="Email"
+        placeholderTextColor="#888" // So it's visible on dark background
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
         onChangeText={setEmail}
+        editable={!isLoading}
       />
       <TextInput
         style={styles.input}
         placeholder="Password"
+        placeholderTextColor="#888" // So it's visible on dark background
         secureTextEntry
         value={password}
         onChangeText={setPassword}
+        editable={!isLoading}
       />
       <TextInput
         style={styles.input}
         placeholder="Confirm Password"
+        placeholderTextColor="#888" // So it's visible on dark background
         secureTextEntry
         value={confirmPassword}
         onChangeText={setConfirmPassword}
+        editable={!isLoading}
       />
-      <Button title="Sign Up" onPress={handleSignup} />
-      <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-        <Text style={styles.link}>Already have an account? Login</Text>
+
+      {/* Custom Button for better styling control */}
+      <TouchableOpacity
+        style={[styles.button, isLoading && styles.buttonDisabled]}
+        onPress={handleSignup}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator color="#121212" /> // Dark indicator on lime button
+        ) : (
+          <Text style={styles.buttonText}>Sign Up</Text>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => navigation.navigate("Login")}
+        disabled={isLoading}
+      >
+        <Text style={styles.link}>
+          Already have an account? <Text style={styles.loginText}>Login</Text>
+        </Text>
       </TouchableOpacity>
     </View>
   );
 };
 
+// --- These styles are identical to LoginScreen for consistency ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
     padding: 24,
-    backgroundColor: "#fff",
+    backgroundColor: "#121212", // Dark background
   },
   title: {
-    fontSize: 28,
+    fontSize: 36, // Consistent title size
     fontWeight: "bold",
-    marginBottom: 24,
+    marginBottom: 40,
     textAlign: "center",
+    color: "#E0E0E0", // Light gray for title
   },
   input: {
-    height: 48,
-    borderColor: "#ccc",
-    borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 16,
-    paddingHorizontal: 12,
-    fontSize: 16,
+    height: 50,
+    backgroundColor: "#222222", // Darker input background
+    color: "#E0E0E0", // Light text for input
+    borderRadius: 10,
+    marginBottom: 20, // More space
+    paddingHorizontal: 16,
+    fontSize: 18,
+    borderWidth: 1, // Subtle border
+    borderColor: "#333333", // Dark border
+  },
+  button: {
+    backgroundColor: "#39FF14", // Electric Lime Green for primary action
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 20,
+    shadowColor: "#39FF14", // Green shadow for pop
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 6, // Android shadow
+  },
+  buttonDisabled: {
+    backgroundColor: "#1E7D0A", // Slightly darker green when disabled
+    shadowOpacity: 0, // No shadow when disabled
+    elevation: 0,
+  },
+  buttonText: {
+    color: "#121212", // Dark text on lime button
+    fontSize: 18,
+    fontWeight: "bold",
   },
   link: {
-    color: "#007bff",
+    color: "#B0B0B0", // Muted link color
+    marginTop: 24,
     textAlign: "center",
-    marginTop: 16,
-    textDecorationLine: "underline",
     fontSize: 16,
+  },
+  loginText: {
+    // Renamed from registerText
+    color: "#39FF14", // Highlight the "Login" part in lime green
+    fontWeight: "bold",
   },
 });
 

@@ -5,21 +5,21 @@ import firestore, {
 } from "@react-native-firebase/firestore";
 import { useAuthStore } from "../store/authstore";
 
-// --- 1. UPDATE THE INTERFACE ---
+// --- Interface (Unchanged) ---
 export interface Challenge {
   id: string;
   title: string;
   description: string;
   startDate: FirebaseFirestoreTypes.Timestamp;
   endDate: FirebaseFirestoreTypes.Timestamp;
-  TargetMetre: number; // <-- ADDED THIS LINE (matches your screenshot)
+  TargetMetre: number;
 }
 
 interface ChallengeCardProps {
   challenge: Challenge;
 }
 
-// formatDate function (unchanged)
+// formatDate function (Unchanged)
 const formatDate = (timestamp: FirebaseFirestoreTypes.Timestamp) => {
   if (!timestamp) {
     return "N/A";
@@ -38,7 +38,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
   const [isJoined, setIsJoined] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
 
-  // useEffect (unchanged, still correct)
+  // useEffect (Unchanged)
   useEffect(() => {
     if (!user) {
       setIsChecking(false);
@@ -70,7 +70,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
     checkParticipation();
   }, [user, challenge.id]);
 
-  // --- 2. UPDATE THE handleJoin FUNCTION ---
+  // handleJoin function (Unchanged)
   const handleJoin = async () => {
     if (!user) {
       Alert.alert("Error", "You must be logged in to join a challenge.");
@@ -80,12 +80,11 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
     setLoading(true);
     try {
       const participantRef = firestore()
-        .collection("participants") // Top-level collection
-        .doc(user.uid) // User's document
-        .collection("joinedChallenges") // Sub-collection of challenges
-        .doc(challenge.id); // Document for this specific challenge
+        .collection("participants")
+        .doc(user.uid)
+        .collection("joinedChallenges")
+        .doc(challenge.id);
 
-      // Add the 'targetMetre' field to the data being set
       await participantRef.set({
         userId: user.uid,
         joinedAt: firestore.FieldValue.serverTimestamp(),
@@ -97,10 +96,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
         challengeDescription: challenge.description,
         challengeStartDate: challenge.startDate,
         challengeEndDate: challenge.endDate,
-
-        // --- THIS IS THE FIX ---
-        targetMetre: challenge.TargetMetre, // <-- ADDED THIS LINE
-        // --- END OF FIX ---
+        targetMetre: challenge.TargetMetre,
       });
 
       Alert.alert(
@@ -116,10 +112,13 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
     }
   };
 
-  // --- Return/Render logic is unchanged ---
-  const buttonStyle = [
-    styles.button,
-    (isJoined || isChecking || loading) && styles.buttonDisabled,
+  // --- DESIGN CHANGE IN RENDER LOGIC ---
+  const isDisabled = isJoined || isChecking || loading;
+  const buttonStyle = [styles.button, isDisabled && styles.buttonDisabled];
+  const buttonTextStyle = [
+    // Create a dynamic style for the text
+    styles.buttonText,
+    isDisabled && styles.buttonTextDisabled,
   ];
   const buttonText = isChecking
     ? "Loading..."
@@ -144,23 +143,24 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
       <TouchableOpacity
         style={buttonStyle}
         onPress={handleJoin}
-        disabled={loading || isChecking || isJoined}
+        disabled={isDisabled}
       >
-        <Text style={styles.buttonText}>{buttonText}</Text>
+        {/* Use the new dynamic text style */}
+        <Text style={buttonTextStyle}>{buttonText}</Text>
       </TouchableOpacity>
     </View>
   );
 };
 
-// --- Styles are unchanged ---
+// --- STYLES (Redesigned) ---
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#1E1E1E", // <-- DESIGN CHANGE
     borderRadius: 12,
     padding: 20,
     marginVertical: 8,
-    marginHorizontal: 16,
-    shadowColor: "#000",
+    // marginHorizontal: 16, // This is handled by the FlatList's padding
+    shadowColor: "#000", // Shadow is less effective but fine
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 6,
@@ -170,10 +170,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     marginBottom: 8,
+    color: "#E0E0E0", // <-- DESIGN CHANGE
   },
   cardDescription: {
     fontSize: 14,
-    color: "#555",
+    color: "#AAAAAA", // <-- DESIGN CHANGE
     marginBottom: 16,
   },
   metaContainer: {
@@ -182,26 +183,29 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
+    borderTopColor: "#333333", // <-- DESIGN CHANGE
   },
   metaText: {
     fontSize: 12,
-    color: "#666",
+    color: "#888888", // <-- DESIGN CHANGE
     fontWeight: "500",
   },
   button: {
-    backgroundColor: "#007AFF",
+    backgroundColor: "#39FF14", // <-- DESIGN CHANGE (Lime Green)
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: "center",
   },
   buttonDisabled: {
-    backgroundColor: "#a9a9a9",
+    backgroundColor: "#333333", // <-- DESIGN CHANGE (Dark Gray)
   },
   buttonText: {
-    color: "#fff",
+    color: "#121212", // <-- DESIGN CHANGE (Dark text for lime button)
     fontSize: 16,
     fontWeight: "600",
+  },
+  buttonTextDisabled: {
+    color: "#888888", // <-- DESIGN CHANGE (Light text for gray button)
   },
 });
 

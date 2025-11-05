@@ -12,18 +12,17 @@ import {
 } from "react-native";
 import firestore, {
   FirebaseFirestoreTypes,
-} from "@react-native-firebase/firestore"; // Import Timestamp type
+} from "@react-native-firebase/firestore";
 import { LineChart } from "react-native-chart-kit";
 import { useFocusEffect } from "@react-navigation/native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useAuthStore } from "../store/authstore";
 
-// Get the screen width
 const screenWidth = Dimensions.get("window").width;
 
-// --- 1. UPDATE INTERFACE ---
+// --- Interface (Unchanged) ---
 interface JoinedChallenge {
-  id: string; // This will be the challengeId
+  id: string;
   challengeId: string;
   challengeTitle: string;
   challengeDescription: string;
@@ -33,32 +32,42 @@ interface JoinedChallenge {
   progress: number;
   joinedAt: FirebaseFirestoreTypes.Timestamp;
   targetMetre?: number;
-
   calculatedProgress?: number;
 }
 
-// ... (formatDate and chartConfig are unchanged) ...
+// --- formatDate (Unchanged) ---
 const formatDate = (timestamp: FirebaseFirestoreTypes.Timestamp) => {
-  if (!timestamp) {
-    return "N/A";
-  }
+  if (!timestamp) return "N/A";
   return timestamp.toDate().toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
 };
 
+// --- 1. UPDATE THEME OBJECT ---
+// Moved to the top so chartConfig can use it
+const theme = {
+  primary: "#39FF14", // Electric Lime
+  background: "#121212", // Dark Background
+  card: "#1E1E1E", // Lighter Dark Card
+  text: "#E0E0E0", // Primary Light Text
+  textSecondary: "#888888", // Muted Light Text
+  danger: "#FF3B30",
+  success: "#34C759", // Standard Green (good for "Complete")
+};
+
+// --- 2. UPDATE CHART CONFIG ---
 const chartConfig = {
-  backgroundColor: "#ffffff",
-  backgroundGradientFrom: "#ffffff",
-  backgroundGradientTo: "#ffffff",
-  color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-  labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+  backgroundColor: theme.card,
+  backgroundGradientFrom: theme.card,
+  backgroundGradientTo: theme.card,
+  color: (opacity = 1) => `rgba(57, 255, 20, ${opacity})`, // Lime Green
+  labelColor: (opacity = 1) => `rgba(224, 224, 224, ${opacity})`, // Light Text
   strokeWidth: 2,
   propsForDots: {
     r: "6",
     strokeWidth: "2",
-    stroke: "#007AFF",
+    stroke: theme.primary, // Lime Green
   },
 };
 
@@ -72,7 +81,7 @@ const ProfileScreen: React.FC = () => {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
 
-  // --- 2. UPDATE fetchData FUNCTION (Unchanged from last time) ---
+  // --- fetchData (Unchanged) ---
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -81,7 +90,7 @@ const ProfileScreen: React.FC = () => {
         return;
       }
 
-      // --- 1. Fetch Chart Data (Unchanged) ---
+      // ... (Chart data fetching logic is unchanged) ...
       const labels: string[] = [];
       const data: number[] = [0, 0, 0, 0, 0, 0, 0];
       const dayStartTimestamps: Date[] = [];
@@ -117,7 +126,7 @@ const ProfileScreen: React.FC = () => {
       setChartLabels(labels);
       setChartData(data);
 
-      // --- 2. Fetch Joined Challenges (Unchanged) ---
+      // ... (Challenge fetching logic is unchanged) ...
       const challengesSnapshot = await firestore()
         .collection("participants")
         .doc(user.uid)
@@ -134,8 +143,6 @@ const ProfileScreen: React.FC = () => {
 
           let totalProgress = 0;
 
-          // --- THIS IS INEFFICIENT ---
-          // It runs this query for every challenge, every time
           if (!challenge.isCompleted) {
             const challengeRoutesSnapshot = await firestore()
               .collection("routes")
@@ -168,18 +175,20 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
-  // ... (useFocusEffect, handleSignOut, dataForChart, renderChart are unchanged) ...
+  // --- useFocusEffect (Unchanged) ---
   useFocusEffect(
     useCallback(() => {
       fetchData();
     }, [user])
   );
 
+  // --- handleSignOut (Unchanged) ---
   function handleSignOut() {
     logout();
     console.log("User signed out!");
   }
 
+  // --- dataForChart (Unchanged) ---
   const dataForChart = {
     labels: chartLabels,
     datasets: [
@@ -190,6 +199,7 @@ const ProfileScreen: React.FC = () => {
     legend: ["Distance (km)"],
   };
 
+  // --- renderChart (Unchanged, now uses new theme) ---
   const renderChart = () => {
     if (loading) {
       return <ActivityIndicator size="large" color={theme.primary} />;
@@ -205,14 +215,14 @@ const ProfileScreen: React.FC = () => {
         data={dataForChart}
         width={screenWidth - 72}
         height={220}
-        chartConfig={chartConfig}
+        chartConfig={chartConfig} // <-- Uses new dark config
         bezier
         style={styles.chart}
       />
     );
   };
 
-  // --- 3. UPDATE renderChallenges ---
+  // --- renderChallenges (Unchanged, now uses new theme) ---
   const renderChallenges = () => {
     if (loading) {
       return <ActivityIndicator size="large" color={theme.primary} />;
@@ -230,15 +240,10 @@ const ProfileScreen: React.FC = () => {
           let progressDisplay;
           const progressInMeters = challenge.calculatedProgress || 0;
 
-          // --- START OF NEW LOGIC ---
-
-          // Check 1: Is it already marked as completed in the DB?
           if (challenge.isCompleted) {
             progressDisplay = (
               <Text style={styles.challengeStatusComplete}>Completed</Text>
             );
-
-            // Check 2: Does it have a target AND has the calculated progress met it?
           } else if (
             challenge.targetMetre &&
             progressInMeters >= challenge.targetMetre
@@ -246,8 +251,6 @@ const ProfileScreen: React.FC = () => {
             progressDisplay = (
               <Text style={styles.challengeStatusComplete}>Completed</Text>
             );
-
-            // Check 3: Does it have a target but progress is not yet met?
           } else if (challenge.targetMetre) {
             const progressKm = (progressInMeters / 1000).toFixed(1);
             const targetKm = (challenge.targetMetre / 1000).toFixed(1);
@@ -256,14 +259,11 @@ const ProfileScreen: React.FC = () => {
                 style={styles.challengeStatusActive}
               >{`${progressKm} / ${targetKm} km`}</Text>
             );
-
-            // Check 4: Fallback (e.g., no targetMetre)
           } else {
             progressDisplay = (
               <Text style={styles.challengeStatusActive}>In Progress</Text>
             );
           }
-          // --- END OF NEW LOGIC ---
 
           return (
             <View
@@ -290,12 +290,11 @@ const ProfileScreen: React.FC = () => {
     );
   };
 
-  // --- Render block (unchanged) ---
+  // --- Render block (Unchanged, now uses new theme) ---
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scrollView}>
         <View style={styles.container}>
-          {/* ... (rest of the render is unchanged) ... */}
           <Text style={styles.title}>Profile</Text>
           {user && <Text style={styles.userEmail}>{user.email}</Text>}
           <View style={styles.card}>
@@ -328,19 +327,8 @@ const ProfileScreen: React.FC = () => {
   );
 };
 
-// --- Styles (unchanged) ---
-const theme = {
-  primary: "#007AFF",
-  background: "#F4F5F7",
-  card: "#FFFFFF",
-  text: "#111111",
-  textSecondary: "#666666",
-  danger: "#FF3B30",
-  success: "#34C759",
-};
-
+// --- 3. UPDATE STYLES ---
 const styles = StyleSheet.create({
-  // ... (all other styles are unchanged)
   safeArea: {
     flex: 1,
     backgroundColor: theme.background,
@@ -422,7 +410,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: "#333333", // <-- Dark border
   },
   lastChallengeRow: {
     borderBottomWidth: 0,
@@ -447,12 +435,12 @@ const styles = StyleSheet.create({
   challengeStatusActive: {
     fontSize: 14,
     fontWeight: "600",
-    color: theme.primary,
+    color: theme.primary, // Lime Green
   },
   challengeStatusComplete: {
     fontSize: 14,
     fontWeight: "600",
-    color: theme.success,
+    color: theme.success, // Standard Green
   },
 });
 

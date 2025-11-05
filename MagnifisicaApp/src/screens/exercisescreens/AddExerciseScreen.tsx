@@ -1,36 +1,25 @@
 import React, { useEffect, useState } from "react";
-
 import {
   View,
   Text,
   StyleSheet,
-  Button,
   FlatList,
   ActivityIndicator,
   Alert,
+  SafeAreaView, // <-- 1. ADDED SAFEA REA VIEW
 } from "react-native";
-
 import { Exercise } from "../../types/Exercise";
-
 import ExerciseCard from "../../components/ExerciseCard";
-
 import { useNavigation } from "@react-navigation/native";
-
 import { StackNavigationProp } from "@react-navigation/stack";
-
 import { MainStackParamList } from "../../navigations/MainStackNavigator";
-
 import auth from "@react-native-firebase/auth";
-
 import firestore from "@react-native-firebase/firestore";
 
 const AddExercise: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<MainStackParamList>>();
-
   const [exercises, setExercises] = useState<Exercise[]>([]);
-
   const [loading, setLoading] = useState<boolean>(true);
-
   const [error, setError] = useState<string | null>(null);
 
   const handlePressExercise = (exercise: Exercise) => {
@@ -46,37 +35,28 @@ const AddExercise: React.FC = () => {
       );
 
       try {
-        // 1. Query to see if this exercise already exists for this user
         const querySnapshot = await userExercisesRef
           .where("userID", "==", user.uid)
           .where("exerciseID", "==", exercise.id)
           .get();
 
-        // 2. If the query is NOT empty, a doc already exists
         if (!querySnapshot.empty) {
           Alert.alert(
             "Already Added",
             "This exercise is already in your list."
           );
         } else {
-          // 3. If the query IS empty, add the document
-          //    with ALL the data HomeScreen needs
-
-          // --- THIS IS THE UPDATED CODE ---
           await userExercisesRef.add({
             userID: user.uid,
             exerciseID: exercise.id,
-
-            // Add all the other exercise data
             name: exercise.name,
             difficulty: exercise.difficulty,
             equipment: exercise.equipment,
             muscle: exercise.muscle,
             type: exercise.type,
             description: exercise.instructions,
-            isDone: false, // <-- Add this field, default to false
+            isDone: false,
           });
-          // --- END OF UPDATE ---
 
           Alert.alert("Success", `${exercise.name} added to your list.`);
         }
@@ -103,111 +83,103 @@ const AddExercise: React.FC = () => {
     const loadExercises = async () => {
       try {
         setLoading(true);
-
-        // 1. Get the collection
-
         const snapshot = await firestore().collection("exercises").get();
-
-        // 2. Map the Firestore docs to your Exercise[] type
-
         const exercisesList: Exercise[] = snapshot.docs.map((doc) => {
           const data = doc.data();
-
           return {
-            id: doc.id, // Use the Firestore Document ID as the unique ID
-
+            id: doc.id,
             name: data.name,
-
             difficulty: data.difficulty,
-
             equipment: data.equipment,
-
-            muscle: data.muscle, // Make sure this field exists in your docs
-
-            type: data.type, // Make sure this field exists in your docs
-
-            instructions: data.description, // Map Firestore 'description' to your app's 'instructions'
+            muscle: data.muscle,
+            type: data.type,
+            instructions: data.description,
           };
         });
-
         setExercises(exercisesList);
       } catch (err) {
         console.error("Error fetching Firestore exercises: ", err);
-
         setError("Failed to load exercises.");
       } finally {
         setLoading(false);
       }
     };
-
     loadExercises();
   }, []);
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Exercises</Text>
-      </View>
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#39FF14" />
+        </View>
+      );
+    }
 
-      {loading ? (
-        <ActivityIndicator
-          size="large"
-          color="#0000ff"
-          style={{ marginTop: 20 }}
-        />
-      ) : error ? (
-        <Text style={{ color: "red", textAlign: "center", marginTop: 20 }}>
-          {error}
-        </Text>
-      ) : (
-        <FlatList
-          data={exercises}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-        />
-      )}
-    </View>
+    if (error) {
+      return (
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      );
+    }
+
+    return (
+      <FlatList
+        data={exercises}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+      />
+    );
+  };
+
+  return (
+    // 2. USE SAFEA REA VIEW AS THE ROOT
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Add Exercises</Text>
+        </View>
+        {renderContent()}
+      </View>
+    </SafeAreaView>
   );
 };
 
+// --- 3. UPDATED STYLES ---
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#121212", // Dark background
+  },
   container: {
     flex: 1,
-
-    padding: 24,
-
-    backgroundColor: "#fff",
-
-    justifyContent: "center",
+    backgroundColor: "#121212", // Dark background
   },
-
-  title: {
-    fontSize: 24,
-
-    fontWeight: "bold",
-
-    marginBottom: 24,
-
-    textAlign: "center",
-  },
-
   header: {
-    paddingHorizontal: 16,
-
+    paddingHorizontal: 20, // Consistent padding
     paddingTop: 16,
-
     paddingBottom: 8,
   },
-
   headerTitle: {
     fontSize: 28,
-
     fontWeight: "bold",
+    color: "#E0E0E0", // Light text
   },
-
   list: {
-    paddingBottom: 16,
+    paddingHorizontal: 20, // Add padding to the list
+    paddingBottom: 20,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  errorText: {
+    color: "#FF3B30", // Danger color
+    fontSize: 16,
+    textAlign: "center",
   },
 });
 

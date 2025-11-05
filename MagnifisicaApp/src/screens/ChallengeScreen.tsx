@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react"; // Import useRef
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,7 @@ import {
   FlatList,
   ActivityIndicator,
   SafeAreaView,
-  Alert, // Import Alert
+  Alert,
 } from "react-native";
 import firestore from "@react-native-firebase/firestore";
 import ChallengeCard, { Challenge } from "../components/ChallengeCard"; // Adjust path as needed
@@ -14,7 +14,6 @@ import ChallengeCard, { Challenge } from "../components/ChallengeCard"; // Adjus
 const ChallengeScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
-  // Use a ref to track if this is the first snapshot load
   const isFirstLoad = useRef(true);
 
   useEffect(() => {
@@ -25,7 +24,6 @@ const ChallengeScreen: React.FC = () => {
         (querySnapshot) => {
           const challengesList: Challenge[] = [];
 
-          // This part still updates your UI with the full list
           querySnapshot.forEach((doc) => {
             challengesList.push({
               id: doc.id,
@@ -33,28 +31,6 @@ const ChallengeScreen: React.FC = () => {
             } as Challenge);
           });
           setChallenges(challengesList);
-
-          if (isFirstLoad.current) {
-            isFirstLoad.current = false; // Mark first load as complete
-          } else {
-            // This is NOT the first load, so check for new documents
-            querySnapshot.docChanges().forEach((change) => {
-              if (change.type === "added") {
-                console.log("New challenge added: ", change.doc.data());
-
-                // Get the new challenge data
-                const newChallenge = change.doc.data();
-
-                // Trigger a simple in-app alert
-                Alert.alert(
-                  "New Challenge!", // Title of the alert
-                  newChallenge.title || "A new challenge is available." // Body of the alert
-                  // (Assuming your challenge document has a 'title' field)
-                );
-              }
-            });
-          }
-          // --- End Notification Logic ---
 
           setLoading(false);
         },
@@ -64,14 +40,14 @@ const ChallengeScreen: React.FC = () => {
         }
       );
 
-    // Unsubscribe from listener when component unmounts
     return () => subscriber();
   }, []);
 
   if (loading) {
     return (
       <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        {/* --- DESIGN CHANGE --- */}
+        <ActivityIndicator size="large" color="#39FF14" />
       </View>
     );
   }
@@ -96,13 +72,15 @@ const ChallengeScreen: React.FC = () => {
   );
 };
 
+// --- DESIGN CHANGES IN STYLES ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F4F5F7",
+    backgroundColor: "#121212", // Dark background
   },
   container: {
     flex: 1,
+    backgroundColor: "#121212", // Dark background
   },
   center: {
     justifyContent: "center",
@@ -110,18 +88,19 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingVertical: 20,
+    paddingHorizontal: 16, // Added horizontal padding
   },
   title: {
     fontSize: 32,
     fontWeight: "bold",
-    marginHorizontal: 16,
     marginBottom: 10,
+    color: "#E0E0E0", // Light text
   },
   emptyText: {
     textAlign: "center",
     marginTop: 50,
     fontSize: 16,
-    color: "#888",
+    color: "#888888", // Muted light text
   },
 });
 

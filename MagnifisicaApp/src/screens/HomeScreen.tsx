@@ -7,7 +7,7 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
-  SafeAreaView, // Import SafeAreaView
+  SafeAreaView,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -15,11 +15,7 @@ import { MainStackParamList } from "../navigations/MainStackNavigator";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import Ionicons from "react-native-vector-icons/Ionicons";
 
-// --- Import Firebase ---
-// We no longer need 'auth' here
 import firestore from "@react-native-firebase/firestore";
-
-// --- 1. Import your Zustand store ---
 import { useAuthStore } from "../store/authstore"; // Adjust path if needed
 
 // --- Interfaces (No changes) ---
@@ -42,7 +38,6 @@ const ExerciseTodoCard: React.FC<ExerciseTodoCardProps> = ({
   onRemove,
   isEditing,
 }) => {
-  // ... (Component code is unchanged) ...
   const checkboxStyle = [
     styles.checkbox,
     exercise.isDone ? styles.checkboxDone : styles.checkboxPending,
@@ -67,7 +62,7 @@ const ExerciseTodoCard: React.FC<ExerciseTodoCardProps> = ({
           onPress={() => onToggle(exercise.id)}
         >
           {exercise.isDone && (
-            <Ionicons name="checkmark" size={20} color="#fff" />
+            <Ionicons name="checkmark" size={20} color="#121212" /> // Dark checkmark
           )}
         </TouchableOpacity>
       )}
@@ -83,20 +78,16 @@ const HomeScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
 
-  // --- 2. Get user from the Zustand store ---
   const user = useAuthStore((state) => state.user);
 
-  // --- 3. Update useEffect to use the 'user' from the store ---
   useEffect(() => {
-    // We now use the 'user' object from the store
     if (!user) {
       setLoading(false);
-      return; // This might happen briefly on load
+      return;
     }
-
     const subscriber = firestore()
       .collection("exercises_taken_by_user")
-      .where("userID", "==", user.uid) // Use user.uid from the store
+      .where("userID", "==", user.uid)
       .onSnapshot(
         (querySnapshot) => {
           const exercisesList: ExerciseTodo[] = [];
@@ -117,9 +108,8 @@ const HomeScreen: React.FC = () => {
           setLoading(false);
         }
       );
-
     return () => subscriber();
-  }, [user]); // Add 'user' as a dependency
+  }, [user]);
 
   // --- Calculations & Handlers (No changes) ---
   const currentAmount = exercises.filter((ex) => ex.isDone).length;
@@ -127,16 +117,12 @@ const HomeScreen: React.FC = () => {
   const fillPercent = goalAmount > 0 ? (currentAmount / goalAmount) * 100 : 0;
 
   function handleToggleExercise(id: string) {
-    // ... (This function is unchanged) ...
     const exercise = exercises.find((ex) => ex.id === id);
     if (!exercise) return;
-
     firestore()
       .collection("exercises_taken_by_user")
       .doc(id)
-      .update({
-        isDone: !exercise.isDone,
-      })
+      .update({ isDone: !exercise.isDone })
       .catch((error) => {
         console.error("Error toggling exercise: ", error);
         Alert.alert("Error", "Could not update exercise.");
@@ -144,7 +130,6 @@ const HomeScreen: React.FC = () => {
   }
 
   function handleRemoveExercise(id: string) {
-    // ... (This function is unchanged) ...
     Alert.alert(
       "Remove Exercise",
       "Are you sure you want to remove this exercise?",
@@ -169,32 +154,31 @@ const HomeScreen: React.FC = () => {
   }
 
   function handleAddExercise() {
-    // ... (This function is unchanged) ...
     if (isEditing) {
       setIsEditing(false);
     }
     navigation.navigate("AddExercise");
   }
 
-  // --- RENDER FUNCTION (No changes) ---
+  // --- RENDER FUNCTION (Design changes applied) ---
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* --- 1. New Header --- */}
+        {/* --- 1. Header --- */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Welcome!</Text>
           <Text style={styles.headerSubtitle}>Here's your plan for today.</Text>
         </View>
 
-        {/* --- 2. Progress Ring inside a Card --- */}
+        {/* --- 2. Progress Ring Card --- */}
         <View style={styles.progressCard}>
           <Text style={styles.progressCardTitle}>Workouts This Week</Text>
           <AnimatedCircularProgress
-            size={180} // Slightly smaller to fit card
+            size={180}
             width={15}
             fill={fillPercent}
-            tintColor="#007AFF"
-            backgroundColor="#e0e0e0"
+            tintColor="#39FF14" // <-- DESIGN CHANGE
+            backgroundColor="#333333" // <-- DESIGN CHANGE
             rotation={0}
             lineCap="round"
           >
@@ -207,9 +191,9 @@ const HomeScreen: React.FC = () => {
           </AnimatedCircularProgress>
         </View>
 
-        {/* --- 3. Workout List (Remove old button, add icon button) --- */}
+        {/* --- 3. Workout List --- */}
         {loading ? (
-          <ActivityIndicator size="large" color="#007AFF" style={{ flex: 1 }} />
+          <ActivityIndicator size="large" color="#39FF14" style={{ flex: 1 }} />
         ) : (
           <FlatList
             data={exercises}
@@ -224,11 +208,9 @@ const HomeScreen: React.FC = () => {
             )}
             style={styles.list}
             ListHeaderComponent={
-              // Show header only if there are exercises
               goalAmount > 0 ? (
                 <View style={styles.listHeaderContainer}>
                   <Text style={styles.listHeader}>Today's Workout</Text>
-                  {/* --- Use an icon for the edit button --- */}
                   <TouchableOpacity
                     style={styles.editButton}
                     onPress={() => setIsEditing(!isEditing)}
@@ -236,7 +218,7 @@ const HomeScreen: React.FC = () => {
                     <Ionicons
                       name={isEditing ? "checkmark-circle" : "pencil-outline"}
                       size={24}
-                      color="#007AFF"
+                      color="#39FF14" // <-- DESIGN CHANGE
                     />
                   </TouchableOpacity>
                 </View>
@@ -252,25 +234,24 @@ const HomeScreen: React.FC = () => {
                 </Text>
               </View>
             }
-            // Add padding to bottom to not be hidden by FAB
             contentContainerStyle={{ paddingBottom: 100 }}
           />
         )}
 
         {/* --- 4. Floating Action Button (FAB) --- */}
         <TouchableOpacity style={styles.fab} onPress={handleAddExercise}>
-          <Ionicons name="add" size={30} color="#fff" />
+          <Ionicons name="add" size={30} color="#121212" />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 };
 
-// --- STYLES (No changes) ---
+// --- STYLES (Redesigned) ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F4F5F7", // Light gray background
+    backgroundColor: "#121212", // <-- DESIGN CHANGE
   },
   container: {
     flex: 1,
@@ -278,28 +259,29 @@ const styles = StyleSheet.create({
   },
   // 1. Header Styles
   header: {
-    paddingTop: 20, // Replaces old paddingTop: 60
+    paddingTop: 20,
     paddingBottom: 10,
   },
   headerTitle: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#111",
+    color: "#E0E0E0", // <-- DESIGN CHANGE
   },
   headerSubtitle: {
     fontSize: 18,
-    color: "#555",
+    color: "#888888", // <-- DESIGN CHANGE
     marginTop: 4,
   },
 
   // 2. Progress Card Styles
   progressCard: {
     width: "100%",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#1E1E1E", // <-- DESIGN CHANGE
     borderRadius: 20,
     padding: 20,
     alignItems: "center",
     marginVertical: 20,
+    // Note: Shadow is less visible on dark bg, but we can leave it
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -309,26 +291,23 @@ const styles = StyleSheet.create({
   progressCardTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#666",
+    color: "#AAAAAA", // <-- DESIGN CHANGE
     marginBottom: 15,
   },
   progressTextContainer: {
-    // (from your original styles)
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "center",
   },
   progressTextValue: {
-    // (from your original styles)
     fontSize: 60,
     fontWeight: "bold",
-    color: "#333",
+    color: "#E0E0E0", // <-- DESIGN CHANGE
   },
   progressTextLabel: {
-    // (from your original styles)
     fontSize: 24,
     fontWeight: "600",
-    color: "#555",
+    color: "#AAAAAA", // <-- DESIGN CHANGE
     paddingBottom: 8,
     marginLeft: 4,
   },
@@ -347,11 +326,10 @@ const styles = StyleSheet.create({
   listHeader: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#333",
+    color: "#E0E0E0", // <-- DESIGN CHANGE
   },
   editButton: {
-    // Replaces editButtonText
-    padding: 5, // Make it easier to tap
+    padding: 5,
   },
   emptyContainer: {
     marginTop: 50,
@@ -360,18 +338,18 @@ const styles = StyleSheet.create({
   emptyListText: {
     textAlign: "center",
     fontSize: 18,
-    color: "#888",
+    color: "#888888", // <-- DESIGN CHANGE (was #888)
   },
   emptyListSubtext: {
     textAlign: "center",
     fontSize: 14,
-    color: "#AAA",
+    color: "#777777", // <-- DESIGN CHANGE (was #AAA)
     marginTop: 8,
   },
 
   // 4. Card Styles
   cardContainer: {
-    backgroundColor: "#FFFFFF", // Changed from #f9f9f9
+    backgroundColor: "#1E1E1E", // <-- DESIGN CHANGE
     borderRadius: 12,
     padding: 16,
     marginVertical: 8,
@@ -386,12 +364,12 @@ const styles = StyleSheet.create({
   },
   cardText: {
     fontSize: 16,
-    color: "#333",
+    color: "#E0E0E0", // <-- DESIGN CHANGE
     flex: 1,
   },
   cardTextDone: {
     textDecorationLine: "line-through",
-    color: "#999",
+    color: "#666666", // <-- DESIGN CHANGE
   },
   checkbox: {
     width: 28,
@@ -403,18 +381,18 @@ const styles = StyleSheet.create({
     marginLeft: 16,
   },
   checkboxPending: {
-    borderColor: "#007AFF",
-    backgroundColor: "#fff",
+    borderColor: "#39FF14", // <-- DESIGN CHANGE
+    backgroundColor: "transparent", // <-- DESIGN CHANGE
   },
   checkboxDone: {
-    borderColor: "#007AFF",
-    backgroundColor: "#007AFF",
+    borderColor: "#39FF14", // <-- DESIGN CHANGE
+    backgroundColor: "#39FF14", // <-- DESIGN CHANGE
   },
   removeButton: {
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: "#FF3B30",
+    backgroundColor: "#FF3B30", // Red is universal, looks fine on dark
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 16,
@@ -423,15 +401,15 @@ const styles = StyleSheet.create({
   // 5. FAB (Floating Action Button) Styles
   fab: {
     position: "absolute",
-    bottom: 30, // Adjust based on your tab bar
+    bottom: 30,
     right: 20,
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#007AFF",
+    backgroundColor: "#39FF14", // <-- DESIGN CHANGE
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: "#39FF14", // <-- DESIGN CHANGE (for glow)
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 5,

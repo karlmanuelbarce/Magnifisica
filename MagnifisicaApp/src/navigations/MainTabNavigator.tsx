@@ -5,11 +5,12 @@ import ProfileScreen from "../screens/ProfileScreen";
 import ChallengeScreen from "../screens/ChallengeScreen";
 import RecordScreen from "../screens/RecordScreen";
 
-// 1. Import the specific icon packs you installed
 import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
 import EvilIcons from "react-native-vector-icons/EvilIcons";
-// You might need another one, e.g., FontAwesome for 'trophy'
 import FontAwesome from "react-native-vector-icons/FontAwesome";
+
+// Import Ionicons for a better 'Record' icon
+import Ionicons from "react-native-vector-icons/Ionicons";
 
 const Tab = createBottomTabNavigator();
 
@@ -17,8 +18,20 @@ const MainTabNavigator = () => {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: "#007AFF",
-        tabBarInactiveTintColor: "gray",
+        // --- DESIGN CHANGES ---
+        headerShown: false, // Hides the default header from the tab navigator
+        tabBarActiveTintColor: "#39FF14", // Electric Lime Green
+        tabBarInactiveTintColor: "#888888", // Muted Gray
+        tabBarStyle: {
+          backgroundColor: "#1E1E1E", // Dark card background
+          borderTopColor: "#333333", // Dark border
+          paddingTop: 4, // Optional: add some padding
+        },
+        tabBarLabelStyle: {
+          fontWeight: "600",
+          fontSize: 10,
+        },
+        // --- END DESIGN CHANGES ---
       }}
     >
       <Tab.Screen
@@ -26,10 +39,9 @@ const MainTabNavigator = () => {
         component={HomeScreen}
         options={{
           tabBarIcon: ({ focused, color, size }) => (
-            // FontAwesome6 has 'house' or 'house-chimney'
             <FontAwesome6
-              name={focused ? "house" : "house"}
-              size={size * 0.9} // FontAwesome6 icons can be a bit large
+              name={"house"} // 'house' is a solid icon
+              size={size * 0.9}
               color={color}
             />
           ),
@@ -40,10 +52,10 @@ const MainTabNavigator = () => {
         component={RecordScreen}
         options={{
           tabBarIcon: ({ focused, color, size }) => (
-            // EvilIcons has a 'record' icon
-            <EvilIcons
-              name={"play"}
-              size={size * 1.2} // EvilIcons can be a bit small
+            // Switched to Ionicons for a better 'play' circle
+            <Ionicons
+              name={focused ? "play-circle" : "play-circle-outline"}
+              size={size * 1.1} // Slightly larger
               color={color}
             />
           ),
@@ -54,10 +66,9 @@ const MainTabNavigator = () => {
         component={ChallengeScreen}
         options={{
           tabBarIcon: ({ focused, color, size }) => (
-            // EvilIcons doesn't have a trophy, so we can use FontAwesome
             <FontAwesome
-              name={focused ? "trophy" : "trophy"}
-              size={size}
+              name={"trophy"}
+              size={size * 1.1} // Slightly larger
               color={color}
             />
           ),
@@ -68,7 +79,6 @@ const MainTabNavigator = () => {
         component={ProfileScreen}
         options={{
           tabBarIcon: ({ focused, color, size }) => (
-            // FontAwesome6 has 'user'
             <FontAwesome6
               name={focused ? "user-large" : "user"}
               size={size * 0.9}

@@ -1,12 +1,13 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Exercise } from "../types/Exercise";
+import Ionicons from "react-native-vector-icons/Ionicons"; // <-- 1. Import icons
 
 interface ExerciseCardProps {
   activity: Exercise;
   onPress?: () => void;
   onAddPress: () => void;
-  disabled?: boolean; // <-- NEW: Prop to disable the button
+  disabled?: boolean;
 }
 
 const capitalize = (s: string) => {
@@ -18,25 +19,22 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   activity,
   onPress,
   onAddPress,
-  disabled, // <-- NEW
+  disabled,
 }) => {
-  // --- NEW: Dynamic styles for the button ---
+  // --- 2. Dynamic styles for the button ---
   const plusButtonContainerStyle = [
     styles.plusButton,
-    disabled && styles.plusButtonDisabled, // Grays out the button
+    disabled && styles.plusButtonDisabled,
   ];
 
-  const plusButtonTextStyle = [
-    styles.plusButtonText,
-    disabled && styles.plusButtonTextDisabled, // Grays out the text
-  ];
+  // Icon color changes based on disabled state
+  const plusIconColor = disabled ? "#888888" : "#121212";
   // ---
 
   return (
     <TouchableOpacity onPress={onPress} style={styles.card} activeOpacity={0.8}>
       <View style={styles.mainContainer}>
         <View style={styles.contentContainer}>
-          {/* ... (rest of the card content is unchanged) ... */}
           <View style={styles.header}>
             <Text style={styles.title}>{activity.name}</Text>
             <View style={styles.tag}>
@@ -44,34 +42,50 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
             </View>
           </View>
           <View style={styles.detailsContainer}>
+            {/* --- 3. Replaced Emojis with Icons --- */}
             <View style={styles.detailItem}>
-              <Text style={styles.detailIcon}>💪</Text>
+              <Ionicons
+                name="barbell-outline"
+                size={16}
+                color={styles.detailText.color}
+                style={styles.detailIcon}
+              />
               <Text style={styles.detailText}>
                 {capitalize(activity.difficulty)}
               </Text>
             </View>
             <View style={styles.detailItem}>
-              <Text style={styles.detailIcon}>🏋️</Text>
+              <Ionicons
+                name="layers-outline"
+                size={16}
+                color={styles.detailText.color}
+                style={styles.detailIcon}
+              />
               <Text style={styles.detailText}>
                 {capitalize(activity.equipment.replace(/_/g, " "))}
               </Text>
             </View>
             <View style={styles.detailItem}>
-              <Text style={styles.detailIcon}>🎯</Text>
+              <Ionicons
+                name="analytics-outline"
+                size={16}
+                color={styles.detailText.color}
+                style={styles.detailIcon}
+              />
               <Text style={styles.detailText}>{capitalize(activity.type)}</Text>
             </View>
           </View>
         </View>
 
-        {/* --- MODIFIED THIS SECTION --- */}
+        {/* --- 4. Replaced Text '+' with Icon --- */}
         <TouchableOpacity
           onPress={onAddPress}
           style={styles.buttonContainer}
           activeOpacity={0.7}
-          disabled={disabled} // <-- NEW: Disable the touchable
+          disabled={disabled}
         >
           <View style={plusButtonContainerStyle}>
-            <Text style={plusButtonTextStyle}>+</Text>
+            <Ionicons name="add" size={22} color={plusIconColor} />
           </View>
         </TouchableOpacity>
         {/* --- END OF MODIFICATION --- */}
@@ -80,14 +94,14 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   );
 };
 
+// --- 5. UPDATED STYLES ---
 const styles = StyleSheet.create({
-  // ... (all other styles are unchanged) ...
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: "#1E1E1E", // Dark card
     borderRadius: 12,
     padding: 16,
     marginVertical: 8,
-    marginHorizontal: 16,
+    // Removed marginHorizontal, should be handled by FlatList
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -113,15 +127,16 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     flex: 1,
     marginRight: 8,
+    color: "#E0E0E0", // Light text
   },
   tag: {
-    backgroundColor: "#eef2ff",
+    backgroundColor: "#1E7D0A", // Dark green
     borderRadius: 12,
     paddingVertical: 4,
     paddingHorizontal: 10,
   },
   tagText: {
-    color: "#4f46e5",
+    color: "#E0E0E0", // Light text
     fontSize: 12,
     fontWeight: "600",
   },
@@ -129,7 +144,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-start",
     borderTopWidth: 1,
-    borderTopColor: "#f3f4f6",
+    borderTopColor: "#333333", // Dark border
     paddingTop: 12,
     gap: 24,
     flexWrap: "wrap",
@@ -139,12 +154,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   detailIcon: {
-    fontSize: 16,
     marginRight: 6,
   },
   detailText: {
     fontSize: 14,
-    color: "#374151",
+    color: "#AAAAAA", // Muted light text
   },
   buttonContainer: {
     justifyContent: "center",
@@ -158,23 +172,15 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#f3f4f6",
+    backgroundColor: "#39FF14", // Lime green
     justifyContent: "center",
     alignItems: "center",
   },
-  plusButtonText: {
-    fontSize: 22,
-    fontWeight: "600",
-    color: "#4f46e5",
-    lineHeight: 24,
-  },
-  // --- NEW STYLES FOR DISABLED STATE ---
+  // Removed plusButtonText
   plusButtonDisabled: {
-    backgroundColor: "#e5e7eb", // Gray background
+    backgroundColor: "#333333", // Dark gray
   },
-  plusButtonTextDisabled: {
-    color: "#9ca3af", // Gray text
-  },
+  // Removed plusButtonTextDisabled
 });
 
 export default ExerciseCard;
