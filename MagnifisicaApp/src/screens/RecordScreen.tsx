@@ -24,6 +24,8 @@ import {
   getFirestore,
   collection,
   addDoc,
+  GeoPoint, // <-- FIX 1: Import GeoPoint
+  serverTimestamp, // <-- FIX 2: Import serverTimestamp
 } from "@react-native-firebase/firestore";
 
 // --- 2. Get Firestore instance ---
@@ -228,17 +230,16 @@ const RecordScreen = () => {
       return;
     }
     try {
-      // Use modular syntax
       const routesCollection = collection(db, "routes");
       await addDoc(routesCollection, {
         userID: user.uid,
         distanceMeters: totalDistance,
         durationSeconds: elapsedTime,
-        createdAt: firestore.FieldValue.serverTimestamp(),
-        startPoint: new firestore.GeoPoint(startPoint[1], startPoint[0]),
-        endPoint: new firestore.GeoPoint(endPoint[1], endPoint[0]),
+        createdAt: serverTimestamp(), // <-- FIX 3: Use modular function
+        startPoint: new GeoPoint(startPoint[1], startPoint[0]), // <-- FIX 4: Use modular class
+        endPoint: new GeoPoint(endPoint[1], endPoint[0]), // <-- FIX 4: Use modular class
         routePoints: routeCoords.map(
-          (coord) => new firestore.GeoPoint(coord[1], coord[0])
+          (coord) => new GeoPoint(coord[1], coord[0]) // <-- FIX 4: Use modular class
         ),
       });
       Alert.alert("Success", "Your route has been saved!");
