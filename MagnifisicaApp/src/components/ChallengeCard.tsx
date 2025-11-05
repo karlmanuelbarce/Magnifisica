@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
+// --- 1. Import new modular functions ---
 import firestore, {
   FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+} from "@react-native-firebase/firestore";
 import { useAuthStore } from "../store/authstore";
+
+// --- 2. Get Firestore instance ---
+const db = getFirestore();
 
 // --- Interface (Unchanged) ---
 export interface Challenge {
@@ -38,24 +49,26 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
   const [isJoined, setIsJoined] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
 
-  // useEffect (Unchanged)
+  // --- useEffect (Unchanged from last time) ---
   useEffect(() => {
     if (!user) {
       setIsChecking(false);
       return;
     }
 
-    const participantRef = firestore()
-      .collection("participants")
-      .doc(user.uid)
-      .collection("joinedChallenges")
-      .doc(challenge.id);
+    const participantRef = doc(
+      db,
+      "participants",
+      user.uid,
+      "joinedChallenges",
+      challenge.id
+    );
 
     const checkParticipation = async () => {
       setIsChecking(true);
       try {
-        const doc = await participantRef.get();
-        if (doc.exists()) {
+        const docSnap = await getDoc(participantRef);
+        if (docSnap.exists()) {
           setIsJoined(true);
         } else {
           setIsJoined(false);
@@ -70,7 +83,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
     checkParticipation();
   }, [user, challenge.id]);
 
-  // handleJoin function (Unchanged)
+  // --- 3. Refactored handleJoin ---
   const handleJoin = async () => {
     if (!user) {
       Alert.alert("Error", "You must be logged in to join a challenge.");
@@ -79,15 +92,18 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
 
     setLoading(true);
     try {
-      const participantRef = firestore()
-        .collection("participants")
-        .doc(user.uid)
-        .collection("joinedChallenges")
-        .doc(challenge.id);
+      const participantRef = doc(
+        db,
+        "participants",
+        user.uid,
+        "joinedChallenges",
+        challenge.id
+      );
 
-      await participantRef.set({
+      // Use setDoc(ref, data)
+      await setDoc(participantRef, {
         userId: user.uid,
-        joinedAt: firestore.FieldValue.serverTimestamp(),
+        joinedAt: serverTimestamp(), // <-- FIX 2: Use it as a function
         displayName: user.email,
         progress: 0,
         isCompleted: false,
@@ -112,11 +128,10 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
     }
   };
 
-  // --- DESIGN CHANGE IN RENDER LOGIC ---
+  // --- Render logic (Unchanged) ---
   const isDisabled = isJoined || isChecking || loading;
   const buttonStyle = [styles.button, isDisabled && styles.buttonDisabled];
   const buttonTextStyle = [
-    // Create a dynamic style for the text
     styles.buttonText,
     isDisabled && styles.buttonTextDisabled,
   ];
@@ -145,22 +160,20 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
         onPress={handleJoin}
         disabled={isDisabled}
       >
-        {/* Use the new dynamic text style */}
         <Text style={buttonTextStyle}>{buttonText}</Text>
       </TouchableOpacity>
     </View>
   );
 };
 
-// --- STYLES (Redesigned) ---
+// --- Styles (Unchanged) ---
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#1E1E1E", // <-- DESIGN CHANGE
+    backgroundColor: "#1E1E1E",
     borderRadius: 12,
     padding: 20,
     marginVertical: 8,
-    // marginHorizontal: 16, // This is handled by the FlatList's padding
-    shadowColor: "#000", // Shadow is less effective but fine
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 6,
@@ -170,11 +183,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     marginBottom: 8,
-    color: "#E0E0E0", // <-- DESIGN CHANGE
+    color: "#E0E0E0",
   },
   cardDescription: {
     fontSize: 14,
-    color: "#AAAAAA", // <-- DESIGN CHANGE
+    color: "#AAAAAA",
     marginBottom: 16,
   },
   metaContainer: {
@@ -183,29 +196,29 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "#333333", // <-- DESIGN CHANGE
+    borderTopColor: "#333333",
   },
   metaText: {
     fontSize: 12,
-    color: "#888888", // <-- DESIGN CHANGE
+    color: "#888888",
     fontWeight: "500",
   },
   button: {
-    backgroundColor: "#39FF14", // <-- DESIGN CHANGE (Lime Green)
+    backgroundColor: "#39FF14",
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: "center",
   },
   buttonDisabled: {
-    backgroundColor: "#333333", // <-- DESIGN CHANGE (Dark Gray)
+    backgroundColor: "#333333",
   },
   buttonText: {
-    color: "#121212", // <-- DESIGN CHANGE (Dark text for lime button)
+    color: "#121212",
     fontSize: 16,
     fontWeight: "600",
   },
   buttonTextDisabled: {
-    color: "#888888", // <-- DESIGN CHANGE (Light text for gray button)
+    color: "#888888",
   },
 });
 
