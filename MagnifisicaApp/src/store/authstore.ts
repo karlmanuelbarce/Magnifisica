@@ -1,37 +1,50 @@
 import { create } from "zustand";
-import auth, { FirebaseAuthTypes } from "@react-native-firebase/auth";
+// --- 1. Import the new modular functions ---
+import {
+  getAuth, // This gets the auth service
+  onAuthStateChanged, // This is the new listener function
+  signOut, // This is the new sign-out function
+  FirebaseAuthTypes,
+} from "@react-native-firebase/auth";
+
+// --- 2. Get the auth instance once ---
+// You can do this outside the store, it's a singleton
+const auth = getAuth();
 
 // Define the shape of your state
 interface AuthState {
   user: FirebaseAuthTypes.User | null;
   isLoading: boolean;
-  checkAuth: () => void;
+  // Update the type: checkAuth will now return the unsubscribe function
+  checkAuth: () => () => void;
   logout: () => void;
 }
 
 // Create the store
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  isLoading: true, // Start in a loading state
+  isLoading: true,
 
   // An action to check auth state and set up the listener
   checkAuth: () => {
-    // We're about to check, so set loading
     set({ isLoading: true });
 
-    // onAuthStateChanged returns an 'unsubscribe' function
-    const unsubscribe = auth().onAuthStateChanged((user) => {
+    // --- 3. Use the new 'onAuthStateChanged' syntax ---
+    // You pass the 'auth' instance as the first argument
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       // When the listener fires, update the store's state
       set({ user: user, isLoading: false });
     });
 
-    // Note: You might want to call unsubscribe() somewhere,
-    // but for an auth listener that lives for the app's lifetime, it's often fine.
+    // --- 4. Return the unsubscribe function ---
+    // This allows your app to clean up the listener when it unmounts
+    return unsubscribe;
   },
 
   // An action to log out
   logout: async () => {
-    await auth().signOut();
+    // --- 5. Use the new 'signOut' syntax ---
+    await signOut(auth);
     // The onAuthStateChanged listener will automatically
     // update the user to 'null' for us.
   },
