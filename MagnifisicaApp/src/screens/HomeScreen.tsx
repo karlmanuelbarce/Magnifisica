@@ -194,7 +194,7 @@ const HomeScreen: React.FC = () => {
 
         {/* --- 2. Progress Ring Card --- */}
         <View style={styles.progressCard}>
-          <Text style={styles.progressCardTitle}>Workouts This Week</Text>
+          <Text style={styles.progressCardTitle}>Workouts Today</Text>
           <AnimatedCircularProgress
             size={180}
             width={15}
