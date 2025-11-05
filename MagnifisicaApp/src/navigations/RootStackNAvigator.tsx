@@ -7,16 +7,20 @@ import MainStackNavigator from "./MainStackNavigator";
 import { useAuthStore } from "../store/authstore"; // Adjust path if needed
 
 const RootStackNavigator: React.FC = () => {
-  // --- THIS IS THE FIX ---
-  // Select each piece of state individually
   const user = useAuthStore((state) => state.user);
   const isLoading = useAuthStore((state) => state.isLoading);
   const checkAuth = useAuthStore((state) => state.checkAuth);
-  // --- END OF FIX ---
 
   useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
+    // --- THIS IS THE FIX ---
+    // 1. Call checkAuth() and store the returned unsubscribe function
+    const unsubscribe = checkAuth();
+
+    // 2. Return the unsubscribe function from useEffect's cleanup
+    //    This is called when the component unmounts.
+    return () => unsubscribe();
+    // --- END OF FIX ---
+  }, [checkAuth]); // The dependency on checkAuth is correct
 
   if (isLoading) {
     return (

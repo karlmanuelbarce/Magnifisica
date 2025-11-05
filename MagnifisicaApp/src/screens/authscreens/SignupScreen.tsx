@@ -6,12 +6,23 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
-  ActivityIndicator, // <-- Added for loading state
+  ActivityIndicator,
 } from "react-native";
+// --- 1. Import SafeAreaView from the correct package ---
+import { SafeAreaView } from "react-native-safe-area-context";
 import { AuthStackParamList } from "../../navigations/AuthStackNavigator";
+
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import auth from "@react-native-firebase/auth"; // <-- Simplified import
+
+// --- 2. Import the new modular auth functions ---
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+} from "@react-native-firebase/auth";
+
+// --- 3. Get the auth instance once ---
+const auth = getAuth();
 
 const SignupScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<AuthStackParamList>>();
@@ -32,9 +43,10 @@ const SignupScreen: React.FC = () => {
 
     setIsLoading(true);
     try {
-      await auth().createUserWithEmailAndPassword(email, password);
+      // --- 4. Use the new modular syntax ---
+      // Pass the 'auth' instance as the first argument
+      await createUserWithEmailAndPassword(auth, email, password);
       // The auth listener in your RootStack will handle navigation
-      // You can still alert the user of success
       Alert.alert("Account Created", "Your account was created successfully!");
     } catch (error: any) {
       let errorMessage = "An unknown error occurred.";
@@ -52,69 +64,77 @@ const SignupScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor="#888" // So it's visible on dark background
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-        editable={!isLoading}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#888" // So it's visible on dark background
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        editable={!isLoading}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Confirm Password"
-        placeholderTextColor="#888" // So it's visible on dark background
-        secureTextEntry
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        editable={!isLoading}
-      />
+    // --- 5. Use SafeAreaView as the root ---
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Create Account</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor="#888" // So it's visible on dark background
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+          editable={!isLoading}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          placeholderTextColor="#888" // So it's visible on dark background
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+          editable={!isLoading}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Confirm Password"
+          placeholderTextColor="#888" // So it's visible on dark background
+          secureTextEntry
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          editable={!isLoading}
+        />
 
-      {/* Custom Button for better styling control */}
-      <TouchableOpacity
-        style={[styles.button, isLoading && styles.buttonDisabled]}
-        onPress={handleSignup}
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <ActivityIndicator color="#121212" /> // Dark indicator on lime button
-        ) : (
-          <Text style={styles.buttonText}>Sign Up</Text>
-        )}
-      </TouchableOpacity>
+        {/* Custom Button for better styling control */}
+        <TouchableOpacity
+          style={[styles.button, isLoading && styles.buttonDisabled]}
+          onPress={handleSignup}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#121212" /> // Dark indicator on lime button
+          ) : (
+            <Text style={styles.buttonText}>Sign Up</Text>
+          )}
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={() => navigation.navigate("Login")}
-        disabled={isLoading}
-      >
-        <Text style={styles.link}>
-          Already have an account? <Text style={styles.loginText}>Login</Text>
-        </Text>
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("Login")}
+          disabled={isLoading}
+        >
+          <Text style={styles.link}>
+            Already have an account? <Text style={styles.loginText}>Login</Text>
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 };
 
 // --- These styles are identical to LoginScreen for consistency ---
 const styles = StyleSheet.create({
+  // --- 6. Add safeArea style ---
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#121212", // Dark background
+  },
   container: {
     flex: 1,
     justifyContent: "center",
     padding: 24,
-    backgroundColor: "#121212", // Dark background
+    // backgroundColor is inherited from safeArea
   },
   title: {
     fontSize: 36, // Consistent title size

@@ -21,12 +21,12 @@ const MainStackNavigator = () => (
     <Stack.Screen
       name="AddExercise"
       component={AddExercise}
-      options={{ title: "Add Exercise" }}
+      options={{ headerShown: false }}
     />
     <Stack.Screen
       name="ExerciseDetail"
       component={ExerciseDetailScreen}
-      options={{ title: "Exercise Details" }}
+      options={{ headerShown: false }}
     />
   </Stack.Navigator>
 );

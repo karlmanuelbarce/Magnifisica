@@ -7,16 +7,27 @@ import {
   Platform,
   Alert,
   TouchableOpacity,
-  SafeAreaView,
   Modal,
-  ActivityIndicator, // <-- Import ActivityIndicator
+  ActivityIndicator,
 } from "react-native";
 import MapLibreGL, { LineLayerStyle } from "@maplibre/maplibre-react-native";
 import Geolocation, { GeoPosition } from "react-native-geolocation-service";
 import Ionicons from "react-native-vector-icons/Ionicons";
-
-import firestore from "@react-native-firebase/firestore";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "../store/authstore";
+
+// --- 1. Import new modular functions ---
+import firestore, { // Keep default for types
+  FirebaseFirestoreTypes,
+} from "@react-native-firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+} from "@react-native-firebase/firestore";
+
+// --- 2. Get Firestore instance ---
+const db = getFirestore();
 
 // --- Haversine formula (unchanged) ---
 const haversineDistance = (
@@ -210,15 +221,16 @@ const RecordScreen = () => {
     setIsModalVisible(true);
   };
 
-  // --- Handle saving the route (unchanged) ---
+  // --- 3. Refactored handleSaveRoute ---
   const handleSaveRoute = async () => {
     if (!user || !startPoint || !endPoint) {
       Alert.alert("Error", "Could not save route. User or route data missing.");
       return;
     }
     try {
-      const routesCollection = firestore().collection("routes");
-      await routesCollection.add({
+      // Use modular syntax
+      const routesCollection = collection(db, "routes");
+      await addDoc(routesCollection, {
         userID: user.uid,
         distanceMeters: totalDistance,
         durationSeconds: elapsedTime,
@@ -245,7 +257,7 @@ const RecordScreen = () => {
     resetRoute();
   };
 
-  // Loading screen
+  // Loading screen (unchanged)
   if (!location) {
     return (
       <View style={[styles.page, { backgroundColor: theme.background }]}>
@@ -257,12 +269,12 @@ const RecordScreen = () => {
     );
   }
 
-  // --- RENDER BLOCK (Updated with new UI) ---
+  // --- RENDER BLOCK (Unchanged) ---
   return (
     <SafeAreaView style={styles.safeArea}>
       <MapLibreGL.MapView
         style={styles.map}
-        mapStyle={`https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${MAPTILER_API_KEY}`} // <-- DESIGN CHANGE
+        mapStyle={`https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${MAPTILER_API_KEY}`}
       >
         <MapLibreGL.Camera
           centerCoordinate={[
@@ -314,7 +326,7 @@ const RecordScreen = () => {
           <Ionicons
             name={recording ? "stop" : "play"}
             size={32}
-            color={recording ? theme.white : theme.textOnPrimary} // <-- DESIGN CHANGE
+            color={recording ? theme.white : theme.textOnPrimary}
           />
         </TouchableOpacity>
       </View>
@@ -364,21 +376,21 @@ const RecordScreen = () => {
   );
 };
 
-// --- New Theme & Styles ---
+// --- Theme & Styles (Unchanged) ---
 const theme = {
-  primary: "#39FF14", // Electric Lime
-  success: "#34C759", // Standard Green (for "Save")
+  primary: "#39FF14",
+  success: "#34C759",
   danger: "#FF3B30",
   white: "#FFFFFF",
-  background: "#121212", // Dark background
-  card: "#1E1E1E", // Lighter dark for cards/panels
-  textPrimary: "#E0E0E0", // Light text
-  textSecondary: "#888888", // Muted text
-  textOnPrimary: "#121212", // Dark text for lime buttons
+  background: "#121212",
+  card: "#1E1E1E",
+  textPrimary: "#E0E0E0",
+  textSecondary: "#888888",
+  textOnPrimary: "#121212",
 };
 
 const lineLayerStyle: LineLayerStyle = {
-  lineColor: theme.primary, // Lime green
+  lineColor: theme.primary,
   lineWidth: 4,
   lineCap: "round",
   lineJoin: "round",
@@ -402,7 +414,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: theme.primary, // Lime green
+    backgroundColor: theme.primary,
     borderColor: theme.white,
     borderWidth: 3,
     shadowColor: "#000",
@@ -411,15 +423,14 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 5,
   },
-  // Control Panel
   controlPanel: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 20,
-    backgroundColor: theme.card, // Dark card
+    backgroundColor: theme.card,
     borderTopWidth: 1,
-    borderTopColor: "#333333", // Dark border
+    borderTopColor: "#333333",
   },
   statsContainer: {
     flex: 1,
@@ -443,29 +454,28 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: theme.primary, // Lime green
+    backgroundColor: theme.primary,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: theme.primary, // Green glow
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 6,
   },
   stopButton: {
-    backgroundColor: theme.danger, // Red
-    shadowColor: theme.danger, // Red glow
+    backgroundColor: theme.danger,
+    shadowColor: theme.danger,
   },
-  // Modal Styles
   modalBackdrop: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.7)", // Darker backdrop
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
   },
   modalView: {
     width: "85%",
-    backgroundColor: theme.card, // Dark card
+    backgroundColor: theme.card,
     borderRadius: 20,
     padding: 24,
     alignItems: "center",
@@ -482,7 +492,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "bold",
     marginBottom: 20,
-    color: theme.textPrimary, // Light text
+    color: theme.textPrimary,
   },
   modalStats: {
     flexDirection: "row",
@@ -513,7 +523,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalButtonDiscard: {
-    backgroundColor: "#333333", // Dark gray
+    backgroundColor: "#333333",
     marginRight: 10,
   },
   modalButtonTextDiscard: {
@@ -522,11 +532,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   modalButtonSave: {
-    backgroundColor: theme.success, // Standard green
+    backgroundColor: theme.success,
     marginLeft: 10,
   },
   modalButtonTextSave: {
-    color: theme.white, // White text on standard green
+    color: theme.white,
     fontWeight: "bold",
     fontSize: 16,
   },

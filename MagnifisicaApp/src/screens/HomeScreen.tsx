@@ -7,16 +7,30 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
-  SafeAreaView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { MainStackParamList } from "../navigations/MainStackNavigator";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import Ionicons from "react-native-vector-icons/Ionicons";
 
-import firestore from "@react-native-firebase/firestore";
+// --- 1. Import new modular functions ---
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  doc,
+  updateDoc,
+  deleteDoc,
+} from "@react-native-firebase/firestore";
+
 import { useAuthStore } from "../store/authstore"; // Adjust path if needed
+
+// --- 2. Get Firestore instance ---
+const db = getFirestore();
 
 // --- Interfaces (No changes) ---
 interface ExerciseTodo {
@@ -80,55 +94,63 @@ const HomeScreen: React.FC = () => {
 
   const user = useAuthStore((state) => state.user);
 
+  // --- 3. Refactored useEffect ---
   useEffect(() => {
     if (!user) {
       setLoading(false);
       return;
     }
-    const subscriber = firestore()
-      .collection("exercises_taken_by_user")
-      .where("userID", "==", user.uid)
-      .onSnapshot(
-        (querySnapshot) => {
-          const exercisesList: ExerciseTodo[] = [];
-          querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            exercisesList.push({
-              id: doc.id,
-              name: data.name,
-              isDone: data.isDone === true ? true : false,
-            });
+    // Create the collection reference
+    const collectionRef = collection(db, "exercises_taken_by_user");
+    // Create the query
+    const q = query(collectionRef, where("userID", "==", user.uid));
+
+    // Set up the snapshot listener
+    const subscriber = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const exercisesList: ExerciseTodo[] = [];
+        querySnapshot.forEach((doc: any) => {
+          const data = doc.data();
+          exercisesList.push({
+            id: doc.id,
+            name: data.name,
+            isDone: data.isDone === true ? true : false,
           });
-          setExercises(exercisesList);
-          setLoading(false);
-        },
-        (error) => {
-          console.error("Error fetching user exercises: ", error);
-          Alert.alert("Error", "Could not load your exercises.");
-          setLoading(false);
-        }
-      );
+        });
+        setExercises(exercisesList);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error fetching user exercises: ", error);
+        Alert.alert("Error", "Could not load your exercises.");
+        setLoading(false);
+      }
+    );
     return () => subscriber();
   }, [user]);
 
-  // --- Calculations & Handlers (No changes) ---
+  // --- Calculations (No changes) ---
   const currentAmount = exercises.filter((ex) => ex.isDone).length;
   const goalAmount = exercises.length;
   const fillPercent = goalAmount > 0 ? (currentAmount / goalAmount) * 100 : 0;
 
+  // --- 4. Refactored handleToggleExercise ---
   function handleToggleExercise(id: string) {
     const exercise = exercises.find((ex) => ex.id === id);
     if (!exercise) return;
-    firestore()
-      .collection("exercises_taken_by_user")
-      .doc(id)
-      .update({ isDone: !exercise.isDone })
-      .catch((error) => {
-        console.error("Error toggling exercise: ", error);
-        Alert.alert("Error", "Could not update exercise.");
-      });
+
+    // Get the document reference
+    const docRef = doc(db, "exercises_taken_by_user", id);
+
+    // Use updateDoc
+    updateDoc(docRef, { isDone: !exercise.isDone }).catch((error) => {
+      console.error("Error toggling exercise: ", error);
+      Alert.alert("Error", "Could not update exercise.");
+    });
   }
 
+  // --- 5. Refactored handleRemoveExercise ---
   function handleRemoveExercise(id: string) {
     Alert.alert(
       "Remove Exercise",
@@ -139,14 +161,14 @@ const HomeScreen: React.FC = () => {
           text: "Remove",
           style: "destructive",
           onPress: () => {
-            firestore()
-              .collection("exercises_taken_by_user")
-              .doc(id)
-              .delete()
-              .catch((error) => {
-                console.error("Error removing exercise: ", error);
-                Alert.alert("Error", "Could not remove exercise.");
-              });
+            // Get the document reference
+            const docRef = doc(db, "exercises_taken_by_user", id);
+
+            // Use deleteDoc
+            deleteDoc(docRef).catch((error) => {
+              console.error("Error removing exercise: ", error);
+              Alert.alert("Error", "Could not remove exercise.");
+            });
           },
         },
       ]
@@ -160,7 +182,7 @@ const HomeScreen: React.FC = () => {
     navigation.navigate("AddExercise");
   }
 
-  // --- RENDER FUNCTION (Design changes applied) ---
+  // --- RENDER FUNCTION (No changes) ---
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -177,8 +199,8 @@ const HomeScreen: React.FC = () => {
             size={180}
             width={15}
             fill={fillPercent}
-            tintColor="#39FF14" // <-- DESIGN CHANGE
-            backgroundColor="#333333" // <-- DESIGN CHANGE
+            tintColor="#39FF14"
+            backgroundColor="#333333"
             rotation={0}
             lineCap="round"
           >
@@ -218,7 +240,7 @@ const HomeScreen: React.FC = () => {
                     <Ionicons
                       name={isEditing ? "checkmark-circle" : "pencil-outline"}
                       size={24}
-                      color="#39FF14" // <-- DESIGN CHANGE
+                      color="#39FF14"
                     />
                   </TouchableOpacity>
                 </View>
@@ -247,17 +269,16 @@ const HomeScreen: React.FC = () => {
   );
 };
 
-// --- STYLES (Redesigned) ---
+// --- STYLES (No changes) ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#121212", // <-- DESIGN CHANGE
+    backgroundColor: "#121212",
   },
   container: {
     flex: 1,
     paddingHorizontal: 20,
   },
-  // 1. Header Styles
   header: {
     paddingTop: 20,
     paddingBottom: 10,
@@ -265,23 +286,20 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#E0E0E0", // <-- DESIGN CHANGE
+    color: "#E0E0E0",
   },
   headerSubtitle: {
     fontSize: 18,
-    color: "#888888", // <-- DESIGN CHANGE
+    color: "#888888",
     marginTop: 4,
   },
-
-  // 2. Progress Card Styles
   progressCard: {
     width: "100%",
-    backgroundColor: "#1E1E1E", // <-- DESIGN CHANGE
+    backgroundColor: "#1E1E1E",
     borderRadius: 20,
     padding: 20,
     alignItems: "center",
     marginVertical: 20,
-    // Note: Shadow is less visible on dark bg, but we can leave it
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -291,7 +309,7 @@ const styles = StyleSheet.create({
   progressCardTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#AAAAAA", // <-- DESIGN CHANGE
+    color: "#AAAAAA",
     marginBottom: 15,
   },
   progressTextContainer: {
@@ -302,17 +320,15 @@ const styles = StyleSheet.create({
   progressTextValue: {
     fontSize: 60,
     fontWeight: "bold",
-    color: "#E0E0E0", // <-- DESIGN CHANGE
+    color: "#E0E0E0",
   },
   progressTextLabel: {
     fontSize: 24,
     fontWeight: "600",
-    color: "#AAAAAA", // <-- DESIGN CHANGE
+    color: "#AAAAAA",
     paddingBottom: 8,
     marginLeft: 4,
   },
-
-  // 3. List Styles
   list: {
     width: "100%",
     marginTop: 10,
@@ -326,7 +342,7 @@ const styles = StyleSheet.create({
   listHeader: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#E0E0E0", // <-- DESIGN CHANGE
+    color: "#E0E0E0",
   },
   editButton: {
     padding: 5,
@@ -338,18 +354,16 @@ const styles = StyleSheet.create({
   emptyListText: {
     textAlign: "center",
     fontSize: 18,
-    color: "#888888", // <-- DESIGN CHANGE (was #888)
+    color: "#888888",
   },
   emptyListSubtext: {
     textAlign: "center",
     fontSize: 14,
-    color: "#777777", // <-- DESIGN CHANGE (was #AAA)
+    color: "#777777",
     marginTop: 8,
   },
-
-  // 4. Card Styles
   cardContainer: {
-    backgroundColor: "#1E1E1E", // <-- DESIGN CHANGE
+    backgroundColor: "#1E1E1E",
     borderRadius: 12,
     padding: 16,
     marginVertical: 8,
@@ -364,12 +378,12 @@ const styles = StyleSheet.create({
   },
   cardText: {
     fontSize: 16,
-    color: "#E0E0E0", // <-- DESIGN CHANGE
+    color: "#E0E0E0",
     flex: 1,
   },
   cardTextDone: {
     textDecorationLine: "line-through",
-    color: "#666666", // <-- DESIGN CHANGE
+    color: "#666666",
   },
   checkbox: {
     width: 28,
@@ -381,24 +395,22 @@ const styles = StyleSheet.create({
     marginLeft: 16,
   },
   checkboxPending: {
-    borderColor: "#39FF14", // <-- DESIGN CHANGE
-    backgroundColor: "transparent", // <-- DESIGN CHANGE
+    borderColor: "#39FF14",
+    backgroundColor: "transparent",
   },
   checkboxDone: {
-    borderColor: "#39FF14", // <-- DESIGN CHANGE
-    backgroundColor: "#39FF14", // <-- DESIGN CHANGE
+    borderColor: "#39FF14",
+    backgroundColor: "#39FF14",
   },
   removeButton: {
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: "#FF3B30", // Red is universal, looks fine on dark
+    backgroundColor: "#FF3B30",
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 16,
   },
-
-  // 5. FAB (Floating Action Button) Styles
   fab: {
     position: "absolute",
     bottom: 30,
@@ -406,10 +418,10 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#39FF14", // <-- DESIGN CHANGE
+    backgroundColor: "#39FF14",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#39FF14", // <-- DESIGN CHANGE (for glow)
+    shadowColor: "#39FF14",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 5,

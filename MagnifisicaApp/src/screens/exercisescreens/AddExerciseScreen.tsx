@@ -6,15 +6,30 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
-  SafeAreaView, // <-- 1. ADDED SAFEA REA VIEW
+  TouchableOpacity,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Exercise } from "../../types/Exercise";
 import ExerciseCard from "../../components/ExerciseCard";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { MainStackParamList } from "../../navigations/MainStackNavigator";
-import auth from "@react-native-firebase/auth";
-import firestore from "@react-native-firebase/firestore";
+import Ionicons from "react-native-vector-icons/Ionicons";
+
+// --- 1. Import new modular functions ---
+import { getAuth } from "@react-native-firebase/auth";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+} from "@react-native-firebase/firestore";
+
+// --- 2. Get service instances ---
+const auth = getAuth();
+const db = getFirestore();
 
 const AddExercise: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<MainStackParamList>>();
@@ -26,19 +41,24 @@ const AddExercise: React.FC = () => {
     navigation.navigate("ExerciseDetail", { exercise });
   };
 
+  // --- 3. Refactored handleAddExercise ---
   const handleAddExercise = async (exercise: Exercise) => {
-    const user = auth().currentUser;
+    const user = auth.currentUser; // No longer a function call
 
     if (user) {
-      const userExercisesRef = firestore().collection(
-        "exercises_taken_by_user"
-      );
+      // Get the collection reference
+      const userExercisesRef = collection(db, "exercises_taken_by_user");
 
       try {
-        const querySnapshot = await userExercisesRef
-          .where("userID", "==", user.uid)
-          .where("exerciseID", "==", exercise.id)
-          .get();
+        // Build the query
+        const q = query(
+          userExercisesRef,
+          where("userID", "==", user.uid),
+          where("exerciseID", "==", exercise.id)
+        );
+
+        // Execute the query
+        const querySnapshot = await getDocs(q);
 
         if (!querySnapshot.empty) {
           Alert.alert(
@@ -46,7 +66,8 @@ const AddExercise: React.FC = () => {
             "This exercise is already in your list."
           );
         } else {
-          await userExercisesRef.add({
+          // Use addDoc to add a new document
+          await addDoc(userExercisesRef, {
             userID: user.uid,
             exerciseID: exercise.id,
             name: exercise.name,
@@ -79,12 +100,16 @@ const AddExercise: React.FC = () => {
     />
   );
 
+  // --- 4. Refactored loadExercises ---
   useEffect(() => {
     const loadExercises = async () => {
       try {
         setLoading(true);
-        const snapshot = await firestore().collection("exercises").get();
-        const exercisesList: Exercise[] = snapshot.docs.map((doc) => {
+
+        // Get the collection ref and execute getDocs
+        const snapshot = await getDocs(collection(db, "exercises"));
+
+        const exercisesList: Exercise[] = snapshot.docs.map((doc: any) => {
           const data = doc.data();
           return {
             id: doc.id,
@@ -96,6 +121,7 @@ const AddExercise: React.FC = () => {
             instructions: data.description,
           };
         });
+
         setExercises(exercisesList);
       } catch (err) {
         console.error("Error fetching Firestore exercises: ", err);
@@ -104,6 +130,7 @@ const AddExercise: React.FC = () => {
         setLoading(false);
       }
     };
+
     loadExercises();
   }, []);
 
@@ -135,40 +162,56 @@ const AddExercise: React.FC = () => {
   };
 
   return (
-    // 2. USE SAFEA REA VIEW AS THE ROOT
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="chevron-back" size={28} color="#E0E0E0" />
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Add Exercises</Text>
+          <View style={styles.dummyView} />
         </View>
+
         {renderContent()}
       </View>
     </SafeAreaView>
   );
 };
 
-// --- 3. UPDATED STYLES ---
+// --- Styles (Unchanged) ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#121212", // Dark background
+    backgroundColor: "#121212",
   },
   container: {
     flex: 1,
-    backgroundColor: "#121212", // Dark background
+    backgroundColor: "#121212",
   },
   header: {
-    paddingHorizontal: 20, // Consistent padding
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 8,
   },
+  backButton: {
+    padding: 4,
+  },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "bold",
-    color: "#E0E0E0", // Light text
+    color: "#E0E0E0",
+  },
+  dummyView: {
+    width: 32,
   },
   list: {
-    paddingHorizontal: 20, // Add padding to the list
+    paddingHorizontal: 20,
     paddingBottom: 20,
   },
   centerContainer: {
@@ -177,7 +220,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   errorText: {
-    color: "#FF3B30", // Danger color
+    color: "#FF3B30",
     fontSize: 16,
     textAlign: "center",
   },

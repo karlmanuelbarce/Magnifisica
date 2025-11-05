@@ -7,18 +7,31 @@ import {
   ActivityIndicator,
   Dimensions,
   Alert,
-  SafeAreaView,
   ScrollView,
 } from "react-native";
-import firestore, {
+import { SafeAreaView } from "react-native-safe-area-context";
+// --- 1. Import modular functions ---
+import firestore, { // Keep default for types
   FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  getDocs,
+  orderBy,
+} from "@react-native-firebase/firestore";
+// ---
 import { LineChart } from "react-native-chart-kit";
 import { useFocusEffect } from "@react-navigation/native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useAuthStore } from "../store/authstore";
 
 const screenWidth = Dimensions.get("window").width;
+
+// --- 2. Get Firestore instance ---
+const db = getFirestore();
 
 // --- Interface (Unchanged) ---
 interface JoinedChallenge {
@@ -44,30 +57,29 @@ const formatDate = (timestamp: FirebaseFirestoreTypes.Timestamp) => {
   });
 };
 
-// --- 1. UPDATE THEME OBJECT ---
-// Moved to the top so chartConfig can use it
+// --- theme (Unchanged) ---
 const theme = {
-  primary: "#39FF14", // Electric Lime
-  background: "#121212", // Dark Background
-  card: "#1E1E1E", // Lighter Dark Card
-  text: "#E0E0E0", // Primary Light Text
-  textSecondary: "#888888", // Muted Light Text
+  primary: "#39FF14",
+  background: "#121212",
+  card: "#1E1E1E",
+  text: "#E0E0E0",
+  textSecondary: "#888888",
   danger: "#FF3B30",
-  success: "#34C759", // Standard Green (good for "Complete")
+  success: "#34C759",
 };
 
-// --- 2. UPDATE CHART CONFIG ---
+// --- chartConfig (Unchanged) ---
 const chartConfig = {
   backgroundColor: theme.card,
   backgroundGradientFrom: theme.card,
   backgroundGradientTo: theme.card,
-  color: (opacity = 1) => `rgba(57, 255, 20, ${opacity})`, // Lime Green
-  labelColor: (opacity = 1) => `rgba(224, 224, 224, ${opacity})`, // Light Text
+  color: (opacity = 1) => `rgba(57, 255, 20, ${opacity})`,
+  labelColor: (opacity = 1) => `rgba(224, 224, 224, ${opacity})`,
   strokeWidth: 2,
   propsForDots: {
     r: "6",
     strokeWidth: "2",
-    stroke: theme.primary, // Lime Green
+    stroke: theme.primary,
   },
 };
 
@@ -81,7 +93,7 @@ const ProfileScreen: React.FC = () => {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
 
-  // --- fetchData (Unchanged) ---
+  // --- 3. Refactored fetchData ---
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -90,7 +102,7 @@ const ProfileScreen: React.FC = () => {
         return;
       }
 
-      // ... (Chart data fetching logic is unchanged) ...
+      // --- 1. Fetch Chart Data (Refactored) ---
       const labels: string[] = [];
       const data: number[] = [0, 0, 0, 0, 0, 0, 0];
       const dayStartTimestamps: Date[] = [];
@@ -106,13 +118,18 @@ const ProfileScreen: React.FC = () => {
         dayStartTimestamps.push(startOfDay);
       }
       const queryStartDate = dayStartTimestamps[0];
-      const routesRef = firestore().collection("routes");
-      const routesQuery = routesRef
-        .where("userID", "==", user.uid)
-        .where("createdAt", ">=", queryStartDate)
-        .where("createdAt", "<=", today);
-      const routesSnapshot = await routesQuery.get();
-      routesSnapshot.forEach((doc) => {
+
+      // Use modular syntax
+      const routesRef = collection(db, "routes");
+      const routesQuery = query(
+        routesRef,
+        where("userID", "==", user.uid),
+        where("createdAt", ">=", queryStartDate),
+        where("createdAt", "<=", today)
+      );
+      const routesSnapshot = await getDocs(routesQuery);
+
+      routesSnapshot.forEach((doc: any) => {
         const route = doc.data();
         const routeDate = route.createdAt.toDate();
         const distanceKm = route.distanceMeters / 1000;
@@ -126,16 +143,20 @@ const ProfileScreen: React.FC = () => {
       setChartLabels(labels);
       setChartData(data);
 
-      // ... (Challenge fetching logic is unchanged) ...
-      const challengesSnapshot = await firestore()
-        .collection("participants")
-        .doc(user.uid)
-        .collection("joinedChallenges")
-        .orderBy("joinedAt", "desc")
-        .get();
+      // --- 2. Fetch Joined Challenges (Refactored) ---
+
+      // Use modular syntax for subcollection
+      const challengesRef = collection(
+        db,
+        "participants",
+        user.uid,
+        "joinedChallenges"
+      );
+      const challengesQuery = query(challengesRef, orderBy("joinedAt", "desc"));
+      const challengesSnapshot = await getDocs(challengesQuery);
 
       const challengesListWithProgress = await Promise.all(
-        challengesSnapshot.docs.map(async (doc) => {
+        challengesSnapshot.docs.map(async (doc: any) => {
           const challenge = {
             id: doc.id,
             ...doc.data(),
@@ -144,14 +165,16 @@ const ProfileScreen: React.FC = () => {
           let totalProgress = 0;
 
           if (!challenge.isCompleted) {
-            const challengeRoutesSnapshot = await firestore()
-              .collection("routes")
-              .where("userID", "==", user.uid)
-              .where("createdAt", ">=", challenge.challengeStartDate)
-              .where("createdAt", "<=", challenge.challengeEndDate)
-              .get();
+            // Use modular syntax for nested query
+            const challengeRoutesQuery = query(
+              collection(db, "routes"), // routesRef
+              where("userID", "==", user.uid),
+              where("createdAt", ">=", challenge.challengeStartDate),
+              where("createdAt", "<=", challenge.challengeEndDate)
+            );
+            const challengeRoutesSnapshot = await getDocs(challengeRoutesQuery);
 
-            challengeRoutesSnapshot.forEach((routeDoc) => {
+            challengeRoutesSnapshot.forEach((routeDoc: any) => {
               totalProgress += routeDoc.data().distanceMeters;
             });
           }
@@ -199,7 +222,7 @@ const ProfileScreen: React.FC = () => {
     legend: ["Distance (km)"],
   };
 
-  // --- renderChart (Unchanged, now uses new theme) ---
+  // --- renderChart (Unchanged) ---
   const renderChart = () => {
     if (loading) {
       return <ActivityIndicator size="large" color={theme.primary} />;
@@ -215,14 +238,14 @@ const ProfileScreen: React.FC = () => {
         data={dataForChart}
         width={screenWidth - 72}
         height={220}
-        chartConfig={chartConfig} // <-- Uses new dark config
+        chartConfig={chartConfig}
         bezier
         style={styles.chart}
       />
     );
   };
 
-  // --- renderChallenges (Unchanged, now uses new theme) ---
+  // --- renderChallenges (Unchanged) ---
   const renderChallenges = () => {
     if (loading) {
       return <ActivityIndicator size="large" color={theme.primary} />;
@@ -290,7 +313,7 @@ const ProfileScreen: React.FC = () => {
     );
   };
 
-  // --- Render block (Unchanged, now uses new theme) ---
+  // --- Render block (Unchanged) ---
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scrollView}>
@@ -327,7 +350,7 @@ const ProfileScreen: React.FC = () => {
   );
 };
 
-// --- 3. UPDATE STYLES ---
+// --- Styles (Unchanged) ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

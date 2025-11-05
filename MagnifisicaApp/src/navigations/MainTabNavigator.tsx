@@ -6,7 +6,6 @@ import ChallengeScreen from "../screens/ChallengeScreen";
 import RecordScreen from "../screens/RecordScreen";
 
 import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
-import EvilIcons from "react-native-vector-icons/EvilIcons";
 import FontAwesome from "react-native-vector-icons/FontAwesome";
 
 // Import Ionicons for a better 'Record' icon
