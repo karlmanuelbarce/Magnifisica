@@ -5,46 +5,41 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
-  // Alert, // We are replacing Alert with Notifee
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// --- 1. Import new modular functions ---
+// --- 1. Import new modular functions and Firestore Types ---
 import {
   getFirestore,
   collection,
   onSnapshot,
+  FirebaseFirestoreTypes, // <-- IMPORTED
 } from "@react-native-firebase/firestore";
 
 // --- 2. Import Notifee ---
 import notifee, { AndroidImportance } from "@notifee/react-native";
 
-import ChallengeCard, { Challenge } from "../components/ChallengeCard"; // Adjust path as needed
+import ChallengeCard, { Challenge } from "../components/ChallengeCard";
 
 // --- 3. Get Firestore instance ---
 const db = getFirestore();
 
-// --- 4. Add Notifee helper function ---
+// --- 4. Add Notifee helper function (Unchanged) ---
 async function displayNotification(title: string, body: string) {
   try {
-    // Request permissions (required for iOS)
     await notifee.requestPermission();
-
-    // Create a channel (required for Android)
     const channelId = await notifee.createChannel({
       id: "new-challenge",
       name: "New Challenges",
-      importance: AndroidImportance.HIGH, // This ensures the notification pops up
+      importance: AndroidImportance.HIGH,
     });
-
-    // Display the notification
     await notifee.displayNotification({
       title: title,
       body: body,
       android: {
         channelId,
         pressAction: {
-          id: "default", // This will open the app when pressed
+          id: "default",
         },
       },
       ios: {
@@ -69,38 +64,41 @@ const ChallengeScreen: React.FC = () => {
       (querySnapshot) => {
         const challengesList: Challenge[] = [];
 
-        // --- MODIFIED: Notification Logic ---
-        // Check for new documents *after* the initial load
         if (!isFirstLoad.current) {
-          querySnapshot.docChanges().forEach((change: any) => {
-            if (change.type === "added") {
-              console.log("New challenge added: ", change.doc.data());
-              const newChallenge = change.doc.data() as Challenge;
+          // --- FIX 1: Type 'change' as DocumentChange ---
+          querySnapshot
+            .docChanges()
+            .forEach((change: FirebaseFirestoreTypes.DocumentChange) => {
+              if (change.type === "added") {
+                // Cast doc.data() to Challenge, as it's the structure we expect
+                const newChallenge = change.doc.data() as Challenge;
+                console.log("New challenge added: ", newChallenge);
 
-              // Send a notification
-              // Assumes your Challenge object has 'title' and 'description' fields
-              displayNotification(
-                "🚀 New Challenge Available!",
-                newChallenge.title || "Check out the new challenge." // Use challenge title or a fallback
-              );
-            }
-          });
+                displayNotification(
+                  "🚀 New Challenge Available!",
+                  newChallenge.title || "Check out the new challenge."
+                );
+              }
+            });
         }
 
-        // --- This code is still needed to update the UI ---
-        querySnapshot.forEach((doc: any) => {
-          challengesList.push({
-            id: doc.id,
-            ...doc.data(),
-          } as Challenge);
-        });
+        // --- FIX 2: Type 'doc' as QueryDocumentSnapshot ---
+        querySnapshot.forEach(
+          (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+            // Cast doc.data() to Challenge
+            const data = doc.data() as Challenge;
+            challengesList.push({
+              ...data, // <-- Spread all data first (including potential inner 'id')
+              id: doc.id, // <-- Explicitly define 'id' using the document ID (which is correct)
+            } as Challenge);
+          }
+        );
         setChallenges(challengesList);
 
         // After the first-ever snapshot is processed, set this to false
         if (isFirstLoad.current) {
           isFirstLoad.current = false;
         }
-        // --- END OF MODIFICATION ---
 
         setLoading(false);
       },

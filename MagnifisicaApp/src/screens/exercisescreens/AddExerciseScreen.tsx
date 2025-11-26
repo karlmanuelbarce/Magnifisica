@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -15,124 +15,86 @@ import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { MainStackParamList } from "../../navigations/MainStackNavigator";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { useAuthStore } from "../../store/authstore";
 
-// --- 1. Import new modular functions ---
-import { getAuth } from "@react-native-firebase/auth";
+// Import React Query hooks
 import {
-  getFirestore,
-  collection,
-  query,
-  where,
-  getDocs,
-  addDoc,
-} from "@react-native-firebase/firestore";
-
-// --- 2. Get service instances ---
-const auth = getAuth();
-const db = getFirestore();
+  useExerciseLibrary,
+  useUserExerciseIds,
+  useAddExerciseToUser,
+} from "../../store/exerciseLibraryStore";
 
 const AddExercise: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<MainStackParamList>>();
-  const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const user = useAuthStore((state) => state.user);
+
+  // Fetch all exercises and user's added exercise IDs
+  const { data: exercises = [], isLoading: loadingExercises } =
+    useExerciseLibrary();
+  const { data: userExerciseIds = [], isLoading: loadingUserIds } =
+    useUserExerciseIds(user?.uid);
+  const { mutate: addExercise, isPending: isAdding } = useAddExerciseToUser();
+
+  // Combined loading state
+  const loading = loadingExercises || loadingUserIds;
+
+  // Create a Set for faster lookup
+  const addedExerciseIds = useMemo(
+    () => new Set(userExerciseIds),
+    [userExerciseIds]
+  );
 
   const handlePressExercise = (exercise: Exercise) => {
     navigation.navigate("ExerciseDetail", { exercise });
   };
 
-  // --- 3. Refactored handleAddExercise ---
-  const handleAddExercise = async (exercise: Exercise) => {
-    const user = auth.currentUser; // No longer a function call
-
-    if (user) {
-      // Get the collection reference
-      const userExercisesRef = collection(db, "exercises_taken_by_user");
-
-      try {
-        // Build the query
-        const q = query(
-          userExercisesRef,
-          where("userID", "==", user.uid),
-          where("exerciseID", "==", exercise.id)
-        );
-
-        // Execute the query
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-          Alert.alert(
-            "Already Added",
-            "This exercise is already in your list."
-          );
-        } else {
-          // Use addDoc to add a new document
-          await addDoc(userExercisesRef, {
-            userID: user.uid,
-            exerciseID: exercise.id,
-            name: exercise.name,
-            difficulty: exercise.difficulty,
-            equipment: exercise.equipment,
-            muscle: exercise.muscle,
-            type: exercise.type,
-            description: exercise.instructions,
-            isDone: false,
-          });
-
-          Alert.alert("Success", `${exercise.name} added to your list.`);
-        }
-      } catch (error) {
-        console.error("Error checking or adding exercise: ", error);
-        Alert.alert("Error", "Could not add exercise. Please try again.");
-      }
-    } else {
+  const handleAddExercise = (exercise: Exercise) => {
+    if (!user) {
       Alert.alert("Error", "You must be logged in to add an exercise.");
+      return;
     }
+
+    // Check if already added
+    if (addedExerciseIds.has(exercise.id)) {
+      Alert.alert("Already Added", "This exercise is already in your list.");
+      return;
+    }
+
+    addExercise(
+      { userId: user.uid, exercise },
+      {
+        onSuccess: () => {
+          Alert.alert("Success", `${exercise.name} added to your list.`);
+        },
+        onError: (error) => {
+          if (
+            error instanceof Error &&
+            error.message === "EXERCISE_ALREADY_EXISTS"
+          ) {
+            Alert.alert(
+              "Already Added",
+              "This exercise is already in your list."
+            );
+          } else {
+            Alert.alert("Error", "Could not add exercise. Please try again.");
+          }
+        },
+      }
+    );
   };
 
-  const renderItem = ({ item }: { item: Exercise }) => (
-    <ExerciseCard
-      activity={item}
-      onPress={() => handlePressExercise(item)}
-      onAddPress={() => {
-        handleAddExercise(item);
-      }}
-    />
-  );
+  const renderItem = ({ item }: { item: Exercise }) => {
+    const isAdded = addedExerciseIds.has(item.id);
 
-  // --- 4. Refactored loadExercises ---
-  useEffect(() => {
-    const loadExercises = async () => {
-      try {
-        setLoading(true);
-
-        // Get the collection ref and execute getDocs
-        const snapshot = await getDocs(collection(db, "exercises"));
-
-        const exercisesList: Exercise[] = snapshot.docs.map((doc: any) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            name: data.name,
-            difficulty: data.difficulty,
-            equipment: data.equipment,
-            muscle: data.muscle,
-            type: data.type,
-            instructions: data.description,
-          };
-        });
-
-        setExercises(exercisesList);
-      } catch (err) {
-        console.error("Error fetching Firestore exercises: ", err);
-        setError("Failed to load exercises.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadExercises();
-  }, []);
+    return (
+      <ExerciseCard
+        activity={item}
+        onPress={() => handlePressExercise(item)}
+        onAddPress={() => handleAddExercise(item)}
+        disabled={isAdded || isAdding}
+      />
+    );
+  };
 
   const renderContent = () => {
     if (loading) {
@@ -143,10 +105,10 @@ const AddExercise: React.FC = () => {
       );
     }
 
-    if (error) {
+    if (exercises.length === 0) {
       return (
         <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>No exercises available.</Text>
         </View>
       );
     }
@@ -181,7 +143,6 @@ const AddExercise: React.FC = () => {
   );
 };
 
-// --- Styles (Unchanged) ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

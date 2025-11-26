@@ -4,35 +4,59 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity, // <-- 1. Import TouchableOpacity
+  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRoute, RouteProp, useNavigation } from "@react-navigation/native"; // <-- 2. Import useNavigation
+import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
 import { MainStackParamList } from "../../navigations/MainStackNavigator";
-import Ionicons from "react-native-vector-icons/Ionicons"; // <-- 3. Import Icons
+import Ionicons from "react-native-vector-icons/Ionicons";
 
 type ExerciseDetailScreenRouteProp = RouteProp<
   MainStackParamList,
   "ExerciseDetail"
 >;
 
-// --- 4. NEW Helper Function ---
-// Capitalizes each word and replaces underscores with spaces
+// Helper Function - Capitalizes each word and replaces underscores with spaces
 const capitalizeWords = (s: string) => {
   if (typeof s !== "string") return "";
-  return s
-    .replace(/_/g, " ") // Replace underscores with spaces
-    .replace(/\b\w/g, (char) => char.toUpperCase()); // Capitalize first letter of each word
+  return s.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
 const ExerciseDetailScreen: React.FC = () => {
   const route = useRoute<ExerciseDetailScreenRouteProp>();
-  const navigation = useNavigation(); // <-- 5. Get navigation
-  const { exercise } = route.params;
+  const navigation = useNavigation();
+
+  // Add error handling for missing exercise data
+  const { exercise } = route.params || {};
+
+  // Debug log to check what data we're receiving
+  console.log("Exercise Detail - Received exercise:", exercise);
+
+  if (!exercise) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="chevron-back" size={28} color="#E0E0E0" />
+        </TouchableOpacity>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={64} color="#FF3B30" />
+          <Text style={styles.errorText}>Exercise not found</Text>
+          <TouchableOpacity
+            style={styles.errorButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.errorButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* --- 6. ADDED BACK BUTTON --- */}
       <TouchableOpacity
         style={styles.backButton}
         onPress={() => navigation.goBack()}
@@ -42,48 +66,48 @@ const ExerciseDetailScreen: React.FC = () => {
 
       <ScrollView style={styles.container}>
         {/* Exercise Title */}
-        <Text style={styles.title}>{exercise.name}</Text>
+        <Text style={styles.title}>{exercise.name || "Unnamed Exercise"}</Text>
 
         {/* Metadata Section */}
         <View style={styles.metaContainer}>
           <View style={styles.metaBox}>
             <Text style={styles.metaLabel}>Muscle</Text>
-            {/* --- 7. Use helper function --- */}
             <Text style={styles.metaValue}>
-              {capitalizeWords(exercise.muscle)}
+              {capitalizeWords(exercise.muscle || "N/A")}
             </Text>
           </View>
           <View style={styles.metaBox}>
             <Text style={styles.metaLabel}>Equipment</Text>
             <Text style={styles.metaValue}>
-              {capitalizeWords(exercise.equipment)}
+              {capitalizeWords(exercise.equipment || "N/A")}
             </Text>
           </View>
           <View style={styles.metaBox}>
             <Text style={styles.metaLabel}>Difficulty</Text>
             <Text style={styles.metaValue}>
-              {capitalizeWords(exercise.difficulty)}
+              {capitalizeWords(exercise.difficulty || "N/A")}
             </Text>
           </View>
           <View style={styles.metaBox}>
             <Text style={styles.metaLabel}>Type</Text>
             <Text style={styles.metaValue}>
-              {capitalizeWords(exercise.type)}
+              {capitalizeWords(exercise.type || "N/A")}
             </Text>
           </View>
         </View>
 
-        {/* --- 8. UPDATED INSTRUCTIONS SECTION --- */}
+        {/* Instructions Section */}
         <View style={styles.instructionsCard}>
           <Text style={styles.subtitle}>Instructions</Text>
-          <Text style={styles.instructionText}>{exercise.instructions}</Text>
+          <Text style={styles.instructionText}>
+            {exercise.instructions || "No instructions available."}
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 };
 
-// --- UPDATED STYLES ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -91,12 +115,11 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 24, // Keep horizontal padding
-    // Removed top padding, handled by title margin
+    paddingHorizontal: 24,
   },
   backButton: {
     position: "absolute",
-    top: 50, // Adjust as needed for your device (or use react-native-safe-area-context)
+    top: 50,
     left: 16,
     zIndex: 10,
     padding: 8,
@@ -106,8 +129,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 16,
     color: "#E0E0E0",
-    marginTop: 60, // Add top margin to account for back button
-    textAlign: "center", // Center title
+    marginTop: 60,
+    textAlign: "center",
   },
   metaContainer: {
     flexDirection: "row",
@@ -133,27 +156,49 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     color: "#E0E0E0",
-    // textTransform: "capitalize", // Removed, now handled by helper
     marginTop: 4,
-    textAlign: "center", // Center the value
+    textAlign: "center",
   },
-  // --- NEW CARD STYLE FOR INSTRUCTIONS ---
   instructionsCard: {
     backgroundColor: "#1E1E1E",
     borderRadius: 8,
     padding: 16,
-    marginBottom: 40, // Add bottom padding
+    marginBottom: 40,
   },
   subtitle: {
     fontSize: 22,
     fontWeight: "600",
-    marginBottom: 12, // More space
+    marginBottom: 12,
     color: "#E0E0E0",
   },
   instructionText: {
     fontSize: 16,
     lineHeight: 24,
     color: "#AAAAAA",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  errorText: {
+    fontSize: 20,
+    color: "#FF3B30",
+    marginTop: 16,
+    marginBottom: 24,
+    textAlign: "center",
+  },
+  errorButton: {
+    backgroundColor: "#39FF14",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  errorButtonText: {
+    color: "#121212",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
 

@@ -11,27 +11,16 @@ import {
   ActivityIndicator,
 } from "react-native";
 import MapLibreGL, { LineLayerStyle } from "@maplibre/maplibre-react-native";
-import Geolocation, { GeoPosition } from "react-native-geolocation-service";
+import Geolocation, {
+  GeoPosition,
+  GeoError,
+} from "react-native-geolocation-service";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "../store/authstore";
+import { useSaveRoute } from "../store/routeStore";
 
-// --- 1. Import new modular functions ---
-import firestore, { // Keep default for types
-  FirebaseFirestoreTypes,
-} from "@react-native-firebase/firestore";
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  GeoPoint, // <-- FIX 1: Import GeoPoint
-  serverTimestamp, // <-- FIX 2: Import serverTimestamp
-} from "@react-native-firebase/firestore";
-
-// --- 2. Get Firestore instance ---
-const db = getFirestore();
-
-// --- Haversine formula (unchanged) ---
+// Haversine formula
 const haversineDistance = (
   coord1: [number, number],
   coord2: [number, number]
@@ -49,7 +38,7 @@ const haversineDistance = (
   return R * c;
 };
 
-// Permission Helper Function (unchanged)
+// Permission Helper Function
 const requestLocationPermission = async () => {
   if (Platform.OS === "ios") {
     const auth = await Geolocation.requestAuthorization("whenInUse");
@@ -81,7 +70,6 @@ const requestLocationPermission = async () => {
   return false;
 };
 
-// --- Main Component ---
 const RecordScreen = () => {
   const [location, setLocation] = useState<GeoPosition | null>(null);
   const [routeCoords, setRouteCoords] = useState<Array<[number, number]>>([]);
@@ -100,7 +88,10 @@ const RecordScreen = () => {
   const watchId = useRef<number | null>(null);
   const timerInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // --- Location Watcher Effect (unchanged) ---
+  // React Query mutation for saving routes
+  const { mutate: saveRoute, isPending: isSaving } = useSaveRoute();
+
+  // Location Watcher Effect
   useEffect(() => {
     (async () => {
       const hasPermission = await requestLocationPermission();
@@ -108,7 +99,8 @@ const RecordScreen = () => {
 
       Geolocation.getCurrentPosition(
         (position) => setLocation(position),
-        (error) => Alert.alert("Could not get initial location."),
+        (error: GeoError) =>
+          Alert.alert("Could not get initial location.", error.message),
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
       );
 
@@ -132,7 +124,8 @@ const RecordScreen = () => {
             lastPointRef.current = newCoord;
           }
         },
-        (error) => console.error("WatchPosition Error:", error),
+        (error: GeoError) =>
+          console.error("WatchPosition Error:", error.message),
         {
           accuracy: { android: "high", ios: "best" },
           enableHighAccuracy: true,
@@ -148,7 +141,7 @@ const RecordScreen = () => {
     };
   }, []);
 
-  // --- Timer Effect (unchanged) ---
+  // Timer Effect
   useEffect(() => {
     if (recording) {
       timerInterval.current = setInterval(() => {
@@ -162,7 +155,7 @@ const RecordScreen = () => {
     };
   }, [recording]);
 
-  // --- Helper to format time (unchanged) ---
+  // Helper to format time
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
       .toString()
@@ -171,7 +164,7 @@ const RecordScreen = () => {
     return `${mins}:${secs}`;
   };
 
-  // --- Helper to reset all route state (unchanged) ---
+  // Helper to reset all route state
   const resetRoute = () => {
     setRouteCoords([]);
     setStartPoint(null);
@@ -181,7 +174,7 @@ const RecordScreen = () => {
     lastPointRef.current = null;
   };
 
-  // --- Updated startRecording (unchanged) ---
+  // Start Recording
   const handleStartRecording = () => {
     resetRoute();
     Geolocation.getCurrentPosition(
@@ -197,12 +190,13 @@ const RecordScreen = () => {
         recordingRef.current = true;
         setRecording(true);
       },
-      (error) => Alert.alert("Could not get current location to start."),
+      (error: GeoError) =>
+        Alert.alert("Could not get current location to start.", error.message),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     );
   };
 
-  // --- Updated stopRecording (unchanged) ---
+  // Stop Recording
   const handleStopRecording = () => {
     setRecording(false);
     recordingRef.current = false;
@@ -223,42 +217,46 @@ const RecordScreen = () => {
     setIsModalVisible(true);
   };
 
-  // --- 3. Refactored handleSaveRoute ---
-  const handleSaveRoute = async () => {
+  // Save Route using React Query mutation
+  const handleSaveRoute = () => {
     if (!user || !startPoint || !endPoint) {
       Alert.alert("Error", "Could not save route. User or route data missing.");
       return;
     }
-    try {
-      const routesCollection = collection(db, "routes");
-      await addDoc(routesCollection, {
-        userID: user.uid,
+
+    saveRoute(
+      {
+        userId: user.uid,
         distanceMeters: totalDistance,
         durationSeconds: elapsedTime,
-        createdAt: serverTimestamp(), // <-- FIX 3: Use modular function
-        startPoint: new GeoPoint(startPoint[1], startPoint[0]), // <-- FIX 4: Use modular class
-        endPoint: new GeoPoint(endPoint[1], endPoint[0]), // <-- FIX 4: Use modular class
-        routePoints: routeCoords.map(
-          (coord) => new GeoPoint(coord[1], coord[0]) // <-- FIX 4: Use modular class
-        ),
-      });
-      Alert.alert("Success", "Your route has been saved!");
-    } catch (error) {
-      console.error("Failed to save route:", error);
-      Alert.alert("Save Failed", "Could not save your route.");
-    } finally {
-      setIsModalVisible(false);
-      resetRoute();
-    }
+        startPoint,
+        endPoint,
+        routePoints: routeCoords,
+      },
+      {
+        onSuccess: () => {
+          Alert.alert("Success", "Your route has been saved!");
+          setIsModalVisible(false);
+          resetRoute();
+        },
+        onError: (error) => {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : "Could not save your route.";
+          Alert.alert("Save Failed", errorMessage);
+        },
+      }
+    );
   };
 
-  // --- Handle discarding the route (unchanged) ---
+  // Handle discarding the route
   const handleDiscardRoute = () => {
     setIsModalVisible(false);
     resetRoute();
   };
 
-  // Loading screen (unchanged)
+  // Loading screen
   if (!location) {
     return (
       <View style={[styles.page, { backgroundColor: theme.background }]}>
@@ -270,7 +268,6 @@ const RecordScreen = () => {
     );
   }
 
-  // --- RENDER BLOCK (Unchanged) ---
   return (
     <SafeAreaView style={styles.safeArea}>
       <MapLibreGL.MapView
@@ -306,7 +303,7 @@ const RecordScreen = () => {
         )}
       </MapLibreGL.MapView>
 
-      {/* --- Control Panel --- */}
+      {/* Control Panel */}
       <View style={styles.controlPanel}>
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
@@ -332,7 +329,7 @@ const RecordScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* --- Confirmation Modal --- */}
+      {/* Confirmation Modal */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -360,14 +357,20 @@ const RecordScreen = () => {
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonDiscard]}
                 onPress={handleDiscardRoute}
+                disabled={isSaving}
               >
                 <Text style={styles.modalButtonTextDiscard}>Discard</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonSave]}
                 onPress={handleSaveRoute}
+                disabled={isSaving}
               >
-                <Text style={styles.modalButtonTextSave}>Save</Text>
+                {isSaving ? (
+                  <ActivityIndicator size="small" color={theme.white} />
+                ) : (
+                  <Text style={styles.modalButtonTextSave}>Save</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -377,7 +380,7 @@ const RecordScreen = () => {
   );
 };
 
-// --- Theme & Styles (Unchanged) ---
+// Theme & Styles
 const theme = {
   primary: "#39FF14",
   success: "#34C759",

@@ -5,12 +5,16 @@ import AddExercise from "../screens/exercisescreens/AddExerciseScreen";
 import ExerciseDetailScreen from "../screens/exercisescreens/ExerciseDetailScreen";
 import { Exercise } from "../types/Exercise";
 
-const Stack = createStackNavigator();
+// Define the param list BEFORE creating the stack
 export type MainStackParamList = {
   MainTabs: undefined;
   AddExercise: undefined;
   ExerciseDetail: { exercise: Exercise };
 };
+
+// Create typed stack navigator
+const Stack = createStackNavigator<MainStackParamList>();
+
 const MainStackNavigator = () => (
   <Stack.Navigator>
     <Stack.Screen

@@ -48,15 +48,24 @@ const SignupScreen: React.FC = () => {
       await createUserWithEmailAndPassword(auth, email, password);
       // The auth listener in your RootStack will handle navigation
       Alert.alert("Account Created", "Your account was created successfully!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       let errorMessage = "An unknown error occurred.";
-      if (error.code === "auth/email-already-in-use") {
-        errorMessage = "That email address is already in use!";
-      } else if (error.code === "auth/invalid-email") {
-        errorMessage = "That email address is invalid!";
-      } else if (error.code === "auth/weak-password") {
-        errorMessage = "Password should be at least 6 characters.";
+
+      // 1. Perform type narrowing: Check if 'error' is an object that has a 'code' property
+      if (error && typeof error === "object" && "code" in error) {
+        // 2. We are now safely inside this block. We can cast it to the expected Firebase type
+        const firebaseError = error as { code: string };
+
+        if (firebaseError.code === "auth/email-already-in-use") {
+          errorMessage = "That email address is already in use!";
+        } else if (firebaseError.code === "auth/invalid-email") {
+          errorMessage = "That email address is invalid!";
+        } else if (firebaseError.code === "auth/weak-password") {
+          errorMessage = "Password should be at least 6 characters.";
+        }
       }
+
+      // If the error doesn't match the Firebase shape, the default 'errorMessage' is used.
       Alert.alert("Sign Up Failed", errorMessage);
     } finally {
       setIsLoading(false);
@@ -104,7 +113,7 @@ const SignupScreen: React.FC = () => {
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator color="#121212" /> // Dark indicator on lime button
+            <ActivityIndicator color="#121212" testID="signup-loading" /> // Dark indicator on lime button
           ) : (
             <Text style={styles.buttonText}>Sign Up</Text>
           )}

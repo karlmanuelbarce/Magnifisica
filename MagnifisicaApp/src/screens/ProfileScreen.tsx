@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -6,49 +6,19 @@ import {
   StyleSheet,
   ActivityIndicator,
   Dimensions,
-  Alert,
   ScrollView,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-// --- 1. Import modular functions ---
-import firestore, { // Keep default for types
-  FirebaseFirestoreTypes,
-} from "@react-native-firebase/firestore";
-import {
-  getFirestore,
-  collection,
-  query,
-  where,
-  getDocs,
-  orderBy,
-} from "@react-native-firebase/firestore";
-// ---
+import { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
 import { LineChart } from "react-native-chart-kit";
-import { useFocusEffect } from "@react-navigation/native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useAuthStore } from "../store/authstore";
+import { useProfileData } from "../store/profileStore";
 
 const screenWidth = Dimensions.get("window").width;
 
-// --- 2. Get Firestore instance ---
-const db = getFirestore();
-
-// --- Interface (Unchanged) ---
-interface JoinedChallenge {
-  id: string;
-  challengeId: string;
-  challengeTitle: string;
-  challengeDescription: string;
-  challengeStartDate: FirebaseFirestoreTypes.Timestamp;
-  challengeEndDate: FirebaseFirestoreTypes.Timestamp;
-  isCompleted: boolean;
-  progress: number;
-  joinedAt: FirebaseFirestoreTypes.Timestamp;
-  targetMetre?: number;
-  calculatedProgress?: number;
-}
-
-// --- formatDate (Unchanged) ---
+// --- Utility Functions ---
 const formatDate = (timestamp: FirebaseFirestoreTypes.Timestamp) => {
   if (!timestamp) return "N/A";
   return timestamp.toDate().toLocaleDateString("en-US", {
@@ -57,7 +27,7 @@ const formatDate = (timestamp: FirebaseFirestoreTypes.Timestamp) => {
   });
 };
 
-// --- theme (Unchanged) ---
+// --- Theme ---
 const theme = {
   primary: "#39FF14",
   background: "#121212",
@@ -68,7 +38,7 @@ const theme = {
   success: "#34C759",
 };
 
-// --- chartConfig (Unchanged) ---
+// --- Chart Configuration ---
 const chartConfig = {
   backgroundColor: theme.card,
   backgroundGradientFrom: theme.card,
@@ -84,134 +54,35 @@ const chartConfig = {
 };
 
 const ProfileScreen: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [chartLabels, setChartLabels] = useState<string[]>([]);
-  const [chartData, setChartData] = useState<number[]>([]);
-  const [joinedChallenges, setJoinedChallenges] = useState<JoinedChallenge[]>(
-    []
-  );
+  // Auth Store
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
 
-  // --- 3. Refactored fetchData ---
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+  // Custom Query Hook - All data fetching logic is abstracted
+  const {
+    data: profileData,
+    isLoading,
+    isError,
+    refetch,
+    isRefetching,
+  } = useProfileData(user?.uid);
 
-      // --- 1. Fetch Chart Data (Refactored) ---
-      const labels: string[] = [];
-      const data: number[] = [0, 0, 0, 0, 0, 0, 0];
-      const dayStartTimestamps: Date[] = [];
-      const today = new Date();
-      for (let i = 6; i >= 0; i--) {
-        const day = new Date(today);
-        day.setDate(today.getDate() - i);
-        labels.push(
-          day.toLocaleDateString("en-US", { weekday: "short" }).slice(0, 2)
-        );
-        const startOfDay = new Date(day);
-        startOfDay.setHours(0, 0, 0, 0);
-        dayStartTimestamps.push(startOfDay);
-      }
-      const queryStartDate = dayStartTimestamps[0];
+  // Extract data with defaults
+  const chartLabels = profileData?.weeklyActivity.labels || [];
+  const chartData = profileData?.weeklyActivity.data || [];
+  const joinedChallenges = profileData?.challenges || [];
 
-      // Use modular syntax
-      const routesRef = collection(db, "routes");
-      const routesQuery = query(
-        routesRef,
-        where("userID", "==", user.uid),
-        where("createdAt", ">=", queryStartDate),
-        where("createdAt", "<=", today)
-      );
-      const routesSnapshot = await getDocs(routesQuery);
-
-      routesSnapshot.forEach((doc: any) => {
-        const route = doc.data();
-        const routeDate = route.createdAt.toDate();
-        const distanceKm = route.distanceMeters / 1000;
-        for (let i = dayStartTimestamps.length - 1; i >= 0; i--) {
-          if (routeDate >= dayStartTimestamps[i]) {
-            data[i] += distanceKm;
-            break;
-          }
-        }
-      });
-      setChartLabels(labels);
-      setChartData(data);
-
-      // --- 2. Fetch Joined Challenges (Refactored) ---
-
-      // Use modular syntax for subcollection
-      const challengesRef = collection(
-        db,
-        "participants",
-        user.uid,
-        "joinedChallenges"
-      );
-      const challengesQuery = query(challengesRef, orderBy("joinedAt", "desc"));
-      const challengesSnapshot = await getDocs(challengesQuery);
-
-      const challengesListWithProgress = await Promise.all(
-        challengesSnapshot.docs.map(async (doc: any) => {
-          const challenge = {
-            id: doc.id,
-            ...doc.data(),
-          } as JoinedChallenge;
-
-          let totalProgress = 0;
-
-          if (!challenge.isCompleted) {
-            // Use modular syntax for nested query
-            const challengeRoutesQuery = query(
-              collection(db, "routes"), // routesRef
-              where("userID", "==", user.uid),
-              where("createdAt", ">=", challenge.challengeStartDate),
-              where("createdAt", "<=", challenge.challengeEndDate)
-            );
-            const challengeRoutesSnapshot = await getDocs(challengeRoutesQuery);
-
-            challengeRoutesSnapshot.forEach((routeDoc: any) => {
-              totalProgress += routeDoc.data().distanceMeters;
-            });
-          }
-
-          return {
-            ...challenge,
-            calculatedProgress: totalProgress,
-          };
-        })
-      );
-
-      setJoinedChallenges(challengesListWithProgress);
-    } catch (error) {
-      console.error("Error fetching profile data:", error);
-      Alert.alert(
-        "Data Load Error",
-        "There was an error loading your data. Please try again later."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- useFocusEffect (Unchanged) ---
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [user])
-  );
-
-  // --- handleSignOut (Unchanged) ---
-  function handleSignOut() {
+  // --- Event Handlers ---
+  const handleSignOut = () => {
     logout();
     console.log("User signed out!");
-  }
+  };
 
-  // --- dataForChart (Unchanged) ---
+  const handleRefresh = () => {
+    refetch();
+  };
+
+  // --- Chart Rendering ---
   const dataForChart = {
     labels: chartLabels,
     datasets: [
@@ -222,9 +93,8 @@ const ProfileScreen: React.FC = () => {
     legend: ["Distance (km)"],
   };
 
-  // --- renderChart (Unchanged) ---
   const renderChart = () => {
-    if (loading) {
+    if (isLoading) {
       return <ActivityIndicator size="large" color={theme.primary} />;
     }
     const noData = chartData.every((item) => item === 0);
@@ -245,9 +115,9 @@ const ProfileScreen: React.FC = () => {
     );
   };
 
-  // --- renderChallenges (Unchanged) ---
+  // --- Challenge Rendering ---
   const renderChallenges = () => {
-    if (loading) {
+    if (isLoading) {
       return <ActivityIndicator size="large" color={theme.primary} />;
     }
     if (joinedChallenges.length === 0) {
@@ -260,8 +130,8 @@ const ProfileScreen: React.FC = () => {
     return (
       <View>
         {joinedChallenges.map((challenge, index) => {
-          let progressDisplay;
           const progressInMeters = challenge.calculatedProgress || 0;
+          let progressDisplay;
 
           if (challenge.isCompleted) {
             progressDisplay = (
@@ -313,19 +183,47 @@ const ProfileScreen: React.FC = () => {
     );
   };
 
-  // --- Render block (Unchanged) ---
+  // --- Main Render ---
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.scrollView}>
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={handleRefresh}
+            tintColor={theme.primary}
+          />
+        }
+      >
         <View style={styles.container}>
           <Text style={styles.title}>Profile</Text>
           {user && <Text style={styles.userEmail}>{user.email}</Text>}
+
+          {/* Error State */}
+          {isError && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>Failed to load data</Text>
+              <TouchableOpacity
+                onPress={handleRefresh}
+                style={styles.retryButton}
+              >
+                <Text style={styles.retryText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Weekly Activity Card */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Weekly Activity</Text>
             <View style={styles.chartContainer}>{renderChart()}</View>
           </View>
+
+          {/* Challenges Section */}
           <Text style={styles.sectionTitle}>My Challenges</Text>
           <View style={styles.card}>{renderChallenges()}</View>
+
+          {/* Account Section */}
           <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.card}>
             <TouchableOpacity style={styles.buttonRow} onPress={handleSignOut}>
@@ -350,7 +248,7 @@ const ProfileScreen: React.FC = () => {
   );
 };
 
-// --- Styles (Unchanged) ---
+// --- Styles ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -373,6 +271,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: theme.textSecondary,
     marginBottom: 24,
+  },
+  errorContainer: {
+    backgroundColor: theme.card,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    alignItems: "center",
+  },
+  errorText: {
+    color: theme.danger,
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  retryButton: {
+    backgroundColor: theme.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: theme.background,
+    fontWeight: "600",
   },
   card: {
     backgroundColor: theme.card,
@@ -433,7 +353,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#333333", // <-- Dark border
+    borderBottomColor: "#333333",
   },
   lastChallengeRow: {
     borderBottomWidth: 0,
@@ -458,12 +378,12 @@ const styles = StyleSheet.create({
   challengeStatusActive: {
     fontSize: 14,
     fontWeight: "600",
-    color: theme.primary, // Lime Green
+    color: theme.primary,
   },
   challengeStatusComplete: {
     fontSize: 14,
     fontWeight: "600",
-    color: theme.success, // Standard Green
+    color: theme.success,
   },
 });
 

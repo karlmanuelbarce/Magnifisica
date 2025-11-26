@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -14,144 +14,51 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import { MainStackParamList } from "../navigations/MainStackNavigator";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import ExerciseTodoCard from "../components/ExerciseTodoCard";
+import { useAuthStore } from "../store/authstore";
 
-// --- 1. Import new modular functions ---
+// --- Import React Query Hooks ---
 import {
-  getFirestore,
-  collection,
-  query,
-  where,
-  onSnapshot,
-  doc,
-  updateDoc,
-  deleteDoc,
-} from "@react-native-firebase/firestore";
+  useUserExercises,
+  useToggleExercise,
+  useRemoveExercise,
+} from "../store/exerciseStore";
 
-import { useAuthStore } from "../store/authstore"; // Adjust path if needed
-
-// --- 2. Get Firestore instance ---
-const db = getFirestore();
-
-// --- Interfaces (No changes) ---
-interface ExerciseTodo {
-  id: string;
-  name: string;
-  isDone: boolean;
-}
-interface ExerciseTodoCardProps {
-  exercise: ExerciseTodo;
-  onToggle: (id: string) => void;
-  onRemove: (id: string) => void;
-  isEditing: boolean;
-}
-
-// --- Card Component (No changes) ---
-const ExerciseTodoCard: React.FC<ExerciseTodoCardProps> = ({
-  exercise,
-  onToggle,
-  onRemove,
-  isEditing,
-}) => {
-  const checkboxStyle = [
-    styles.checkbox,
-    exercise.isDone ? styles.checkboxDone : styles.checkboxPending,
-  ];
-
-  return (
-    <View style={styles.cardContainer}>
-      <Text style={[styles.cardText, exercise.isDone && styles.cardTextDone]}>
-        {exercise.name}
-      </Text>
-
-      {isEditing ? (
-        <TouchableOpacity
-          style={styles.removeButton}
-          onPress={() => onRemove(exercise.id)}
-        >
-          <Ionicons name="trash-outline" size={20} color="#fff" />
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity
-          style={checkboxStyle}
-          onPress={() => onToggle(exercise.id)}
-        >
-          {exercise.isDone && (
-            <Ionicons name="checkmark" size={20} color="#121212" /> // Dark checkmark
-          )}
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-};
-
-// --- Main HomeScreen Component ---
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<MainStackParamList>>();
-
-  const [exercises, setExercises] = useState<ExerciseTodo[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-
   const user = useAuthStore((state) => state.user);
 
-  // --- 3. Refactored useEffect ---
-  useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    // Create the collection reference
-    const collectionRef = collection(db, "exercises_taken_by_user");
-    // Create the query
-    const q = query(collectionRef, where("userID", "==", user.uid));
+  // --- React Query Hooks ---
+  const { data: exercises = [], isLoading } = useUserExercises(user?.uid);
+  const { mutate: toggleExercise } = useToggleExercise();
+  const { mutate: removeExercise } = useRemoveExercise();
 
-    // Set up the snapshot listener
-    const subscriber = onSnapshot(
-      q,
-      (querySnapshot) => {
-        const exercisesList: ExerciseTodo[] = [];
-        querySnapshot.forEach((doc: any) => {
-          const data = doc.data();
-          exercisesList.push({
-            id: doc.id,
-            name: data.name,
-            isDone: data.isDone === true ? true : false,
-          });
-        });
-        setExercises(exercisesList);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("Error fetching user exercises: ", error);
-        Alert.alert("Error", "Could not load your exercises.");
-        setLoading(false);
-      }
-    );
-    return () => subscriber();
-  }, [user]);
-
-  // --- Calculations (No changes) ---
+  // --- Calculations ---
   const currentAmount = exercises.filter((ex) => ex.isDone).length;
   const goalAmount = exercises.length;
   const fillPercent = goalAmount > 0 ? (currentAmount / goalAmount) * 100 : 0;
 
-  // --- 4. Refactored handleToggleExercise ---
-  function handleToggleExercise(id: string) {
+  // --- Event Handlers ---
+  const handleToggleExercise = (id: string) => {
+    if (!user) return;
+
     const exercise = exercises.find((ex) => ex.id === id);
     if (!exercise) return;
 
-    // Get the document reference
-    const docRef = doc(db, "exercises_taken_by_user", id);
+    toggleExercise(
+      { id, currentStatus: exercise.isDone, userId: user.uid },
+      {
+        onError: () => {
+          Alert.alert("Error", "Could not update exercise status.");
+        },
+      }
+    );
+  };
 
-    // Use updateDoc
-    updateDoc(docRef, { isDone: !exercise.isDone }).catch((error) => {
-      console.error("Error toggling exercise: ", error);
-      Alert.alert("Error", "Could not update exercise.");
-    });
-  }
+  const handleRemoveExercise = (id: string) => {
+    if (!user) return;
 
-  // --- 5. Refactored handleRemoveExercise ---
-  function handleRemoveExercise(id: string) {
     Alert.alert(
       "Remove Exercise",
       "Are you sure you want to remove this exercise?",
@@ -161,38 +68,38 @@ const HomeScreen: React.FC = () => {
           text: "Remove",
           style: "destructive",
           onPress: () => {
-            // Get the document reference
-            const docRef = doc(db, "exercises_taken_by_user", id);
-
-            // Use deleteDoc
-            deleteDoc(docRef).catch((error) => {
-              console.error("Error removing exercise: ", error);
-              Alert.alert("Error", "Could not remove exercise.");
-            });
+            removeExercise(
+              { exerciseId: id, userId: user.uid },
+              {
+                onError: () => {
+                  Alert.alert("Error", "Could not remove exercise.");
+                },
+              }
+            );
           },
         },
       ]
     );
-  }
+  };
 
-  function handleAddExercise() {
+  const handleAddExercise = () => {
     if (isEditing) {
       setIsEditing(false);
     }
     navigation.navigate("AddExercise");
-  }
+  };
 
-  // --- RENDER FUNCTION (No changes) ---
+  // --- Render ---
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* --- 1. Header --- */}
+        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Welcome!</Text>
           <Text style={styles.headerSubtitle}>Here's your plan for today.</Text>
         </View>
 
-        {/* --- 2. Progress Ring Card --- */}
+        {/* Progress Card */}
         <View style={styles.progressCard}>
           <Text style={styles.progressCardTitle}>Workouts Today</Text>
           <AnimatedCircularProgress
@@ -204,7 +111,7 @@ const HomeScreen: React.FC = () => {
             rotation={0}
             lineCap="round"
           >
-            {(fill: number) => (
+            {() => (
               <View style={styles.progressTextContainer}>
                 <Text style={styles.progressTextValue}>{currentAmount}</Text>
                 <Text style={styles.progressTextLabel}>/ {goalAmount}</Text>
@@ -213,9 +120,14 @@ const HomeScreen: React.FC = () => {
           </AnimatedCircularProgress>
         </View>
 
-        {/* --- 3. Workout List --- */}
-        {loading ? (
-          <ActivityIndicator size="large" color="#39FF14" style={{ flex: 1 }} />
+        {/* List Section */}
+        {isLoading ? (
+          <ActivityIndicator
+            size="large"
+            color="#39FF14"
+            style={{ flex: 1 }}
+            testID="loading-indicator"
+          />
         ) : (
           <FlatList
             data={exercises}
@@ -236,6 +148,7 @@ const HomeScreen: React.FC = () => {
                   <TouchableOpacity
                     style={styles.editButton}
                     onPress={() => setIsEditing(!isEditing)}
+                    testID="edit-button"
                   >
                     <Ionicons
                       name={isEditing ? "checkmark-circle" : "pencil-outline"}
@@ -260,8 +173,12 @@ const HomeScreen: React.FC = () => {
           />
         )}
 
-        {/* --- 4. Floating Action Button (FAB) --- */}
-        <TouchableOpacity style={styles.fab} onPress={handleAddExercise}>
+        {/* FAB */}
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={handleAddExercise}
+          testID="add-exercise-fab"
+        >
           <Ionicons name="add" size={30} color="#121212" />
         </TouchableOpacity>
       </View>
@@ -269,7 +186,6 @@ const HomeScreen: React.FC = () => {
   );
 };
 
-// --- STYLES (No changes) ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -361,55 +277,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#777777",
     marginTop: 8,
-  },
-  cardContainer: {
-    backgroundColor: "#1E1E1E",
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 8,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  cardText: {
-    fontSize: 16,
-    color: "#E0E0E0",
-    flex: 1,
-  },
-  cardTextDone: {
-    textDecorationLine: "line-through",
-    color: "#666666",
-  },
-  checkbox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    borderWidth: 2,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 16,
-  },
-  checkboxPending: {
-    borderColor: "#39FF14",
-    backgroundColor: "transparent",
-  },
-  checkboxDone: {
-    borderColor: "#39FF14",
-    backgroundColor: "#39FF14",
-  },
-  removeButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: "#FF3B30",
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 16,
   },
   fab: {
     position: "absolute",

@@ -37,7 +37,7 @@ const MainTabNavigator = () => {
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarIcon: ({ focused, color, size }) => (
+          tabBarIcon: ({ color, size }) => (
             <FontAwesome6
               name={"house"} // 'house' is a solid icon
               size={size * 0.9}
@@ -64,7 +64,7 @@ const MainTabNavigator = () => {
         name="Challenge"
         component={ChallengeScreen}
         options={{
-          tabBarIcon: ({ focused, color, size }) => (
+          tabBarIcon: ({ color, size }) => (
             <FontAwesome
               name={"trophy"}
               size={size * 1.1} // Slightly larger

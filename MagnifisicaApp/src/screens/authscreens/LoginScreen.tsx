@@ -92,7 +92,7 @@ const LoginScreen: React.FC = () => {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#121212" /> // Dark indicator on lime button
+            <ActivityIndicator color="#121212" testID="login-loading" /> // Dark indicator on lime button
           ) : (
             <Text style={styles.buttonText}>Login</Text>
           )}
@@ -100,7 +100,7 @@ const LoginScreen: React.FC = () => {
 
         <TouchableOpacity onPress={() => navigation.navigate("Register")}>
           <Text style={styles.link}>
-            Don't have an account?{" "}
+            Don&#39;t have an account?{" "}
             <Text style={styles.registerText}>Register</Text>
           </Text>
         </TouchableOpacity>

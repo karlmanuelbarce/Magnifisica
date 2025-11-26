@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
-// --- 1. Import new modular functions ---
-import firestore, {
-  FirebaseFirestoreTypes,
-} from "@react-native-firebase/firestore";
 import {
   getFirestore,
   doc,
   getDoc,
   setDoc,
   serverTimestamp,
+  FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
 import { useAuthStore } from "../store/authstore";
 
