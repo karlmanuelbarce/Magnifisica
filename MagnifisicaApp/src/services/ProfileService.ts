@@ -5,6 +5,7 @@ import {
   where,
   getDocs,
   orderBy,
+  onSnapshot, // Import onSnapshot
   FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
 
@@ -29,148 +30,240 @@ export interface WeeklyChartData {
   data: number[];
 }
 
+export interface ProfileData {
+  weeklyActivity: WeeklyChartData;
+  challenges: JoinedChallenge[];
+}
+
 export const ProfileService = {
   /**
-   * Fetches the last 7 days of running activity for chart display
+   * Subscribes to the last 7 days of running activity
    */
-  fetchWeeklyActivity: async (userId: string): Promise<WeeklyChartData> => {
-    try {
-      const labels: string[] = [];
-      const data: number[] = [0, 0, 0, 0, 0, 0, 0];
-      const dayStartTimestamps: Date[] = [];
-      const today = new Date();
+  subscribeToWeeklyActivity: (
+    userId: string,
+    onUpdate: (data: WeeklyChartData) => void,
+    onError: (error: Error) => void
+  ) => {
+    const today = new Date();
+    const dayStartTimestamps: Date[] = [];
+    const labels: string[] = [];
 
-      // Build date labels and timestamps
-      for (let i = 6; i >= 0; i--) {
-        const day = new Date(today);
-        day.setDate(today.getDate() - i);
-        labels.push(
-          day.toLocaleDateString("en-US", { weekday: "short" }).slice(0, 2)
-        );
-        const startOfDay = new Date(day);
-        startOfDay.setHours(0, 0, 0, 0);
-        dayStartTimestamps.push(startOfDay);
-      }
-
-      const queryStartDate = dayStartTimestamps[0];
-
-      // Query routes for the week
-      const routesRef = collection(db, "routes");
-      const routesQuery = query(
-        routesRef,
-        where("userID", "==", userId),
-        where("createdAt", ">=", queryStartDate),
-        where("createdAt", "<=", today)
+    // Pre-calculate date ranges
+    for (let i = 6; i >= 0; i--) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - i);
+      labels.push(
+        day.toLocaleDateString("en-US", { weekday: "short" }).slice(0, 2)
       );
-      const routesSnapshot = await getDocs(routesQuery);
-
-      // Process routes and aggregate by day
-      routesSnapshot.forEach(
-        (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-          const route = doc.data() as {
-            createdAt: FirebaseFirestoreTypes.Timestamp;
-            distanceMeters: number;
-          };
-          const routeDate = route.createdAt.toDate();
-          const distanceKm = route.distanceMeters / 1000;
-
-          // Find which day this route belongs to
-          for (let i = dayStartTimestamps.length - 1; i >= 0; i--) {
-            if (routeDate >= dayStartTimestamps[i]) {
-              data[i] += distanceKm;
-              break;
-            }
-          }
-        }
-      );
-
-      return { labels, data };
-    } catch (error) {
-      console.error("Error fetching weekly activity:", error);
-      throw new Error("FETCH_WEEKLY_ACTIVITY_FAILED");
+      const startOfDay = new Date(day);
+      startOfDay.setHours(0, 0, 0, 0);
+      dayStartTimestamps.push(startOfDay);
     }
-  },
 
-  /**
-   * Fetches all joined challenges with calculated progress
-   */
-  fetchJoinedChallenges: async (userId: string): Promise<JoinedChallenge[]> => {
-    try {
-      // Query joined challenges
-      const challengesRef = collection(
-        db,
-        "participants",
-        userId,
-        "joinedChallenges"
-      );
-      const challengesQuery = query(challengesRef, orderBy("joinedAt", "desc"));
-      const challengesSnapshot = await getDocs(challengesQuery);
+    const queryStartDate = dayStartTimestamps[0];
 
-      // Calculate progress for each challenge
-      const challengesWithProgress = await Promise.all(
-        challengesSnapshot.docs.map(
-          async (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-            const challenge = {
-              id: doc.id,
-              ...doc.data(),
-            } as JoinedChallenge;
+    const routesRef = collection(db, "routes");
+    const routesQuery = query(
+      routesRef,
+      where("userID", "==", userId),
+      where("createdAt", ">=", queryStartDate),
+      where("createdAt", "<=", today)
+    );
 
-            let totalProgress = 0;
+    return onSnapshot(
+      routesQuery,
+      (snapshot) => {
+        const data: number[] = [0, 0, 0, 0, 0, 0, 0];
 
-            // Only calculate progress for incomplete challenges
-            if (!challenge.isCompleted) {
-              const challengeRoutesQuery = query(
-                collection(db, "routes"),
-                where("userID", "==", userId),
-                where("createdAt", ">=", challenge.challengeStartDate),
-                where("createdAt", "<=", challenge.challengeEndDate)
-              );
-              const challengeRoutesSnapshot = await getDocs(
-                challengeRoutesQuery
-              );
-
-              challengeRoutesSnapshot.forEach(
-                (routeDoc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-                  const routeData = routeDoc.data() as {
-                    distanceMeters: number;
-                  };
-                  totalProgress += routeData.distanceMeters;
-                }
-              );
-            }
-
-            return {
-              ...challenge,
-              calculatedProgress: totalProgress,
+        snapshot.forEach(
+          (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+            const route = doc.data() as {
+              createdAt: FirebaseFirestoreTypes.Timestamp;
+              distanceMeters: number;
             };
-          }
-        )
-      );
+            const routeDate = route.createdAt.toDate();
+            const distanceKm = route.distanceMeters / 1000;
 
-      return challengesWithProgress;
-    } catch (error) {
-      console.error("Error fetching joined challenges:", error);
-      throw new Error("FETCH_CHALLENGES_FAILED");
-    }
+            // Aggregate
+            for (let i = dayStartTimestamps.length - 1; i >= 0; i--) {
+              if (routeDate >= dayStartTimestamps[i]) {
+                data[i] += distanceKm;
+                break;
+              }
+            }
+          }
+        );
+
+        onUpdate({ labels, data });
+      },
+      (error) => {
+        console.error("Error subscribing to weekly activity:", error);
+        onError(error);
+      }
+    );
   },
 
   /**
-   * Fetches all profile data (weekly activity + challenges)
+   * Subscribes to joined challenges and calculates progress
+   * Note: This requires fetching routes inside the subscription callback
    */
-  fetchProfileData: async (userId: string) => {
-    try {
-      const [weeklyActivity, challenges] = await Promise.all([
-        ProfileService.fetchWeeklyActivity(userId),
-        ProfileService.fetchJoinedChallenges(userId),
-      ]);
+  subscribeToJoinedChallenges: (
+    userId: string,
+    onUpdate: (data: JoinedChallenge[]) => void,
+    onError: (error: Error) => void
+  ) => {
+    const challengesRef = collection(
+      db,
+      "participants",
+      userId,
+      "joinedChallenges"
+    );
+    const challengesQuery = query(challengesRef, orderBy("joinedAt", "desc"));
 
-      return {
-        weeklyActivity,
-        challenges,
-      };
-    } catch (error) {
-      console.error("Error fetching profile data:", error);
-      throw error;
-    }
+    return onSnapshot(
+      challengesQuery,
+      async (snapshot) => {
+        try {
+          const challengesWithProgress = await Promise.all(
+            snapshot.docs.map(
+              async (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+                const challenge = {
+                  id: doc.id,
+                  ...doc.data(),
+                } as JoinedChallenge;
+
+                let totalProgress = 0;
+
+                if (!challenge.isCompleted) {
+                  // Fetch routes for this specific challenge duration
+                  // Note: We use getDocs here to avoid nested listeners overload,
+                  // effectively making this "Reactive to Challenge Changes" but "Pulling Route Data"
+                  const challengeRoutesQuery = query(
+                    collection(db, "routes"),
+                    where("userID", "==", userId),
+                    where("createdAt", ">=", challenge.challengeStartDate),
+                    where("createdAt", "<=", challenge.challengeEndDate)
+                  );
+
+                  const routeSnaps = await getDocs(challengeRoutesQuery);
+
+                  routeSnaps.forEach(
+                    (
+                      routeDoc: FirebaseFirestoreTypes.QueryDocumentSnapshot
+                    ) => {
+                      const routeData = routeDoc.data() as {
+                        distanceMeters: number;
+                      };
+                      totalProgress += routeData.distanceMeters;
+                    }
+                  );
+                }
+
+                return {
+                  ...challenge,
+                  calculatedProgress: totalProgress,
+                };
+              }
+            )
+          );
+
+          onUpdate(challengesWithProgress);
+        } catch (err) {
+          console.error("Error calculating progress in subscription:", err);
+          onError(err instanceof Error ? err : new Error("Unknown error"));
+        }
+      },
+      (error) => {
+        console.error("Error subscribing to joined challenges:", error);
+        onError(error);
+      }
+    );
+  },
+
+  /**
+   * Subscribes to BOTH weekly activity and challenges
+   * Merges the results into one ProfileData object
+   */
+  subscribeToProfileData: (
+    userId: string,
+    onUpdate: (data: ProfileData) => void,
+    onError: (error: Error) => void
+  ) => {
+    let currentWeekly: WeeklyChartData | null = null;
+    let currentChallenges: JoinedChallenge[] | null = null;
+
+    const checkAndUpdate = () => {
+      if (currentWeekly && currentChallenges) {
+        onUpdate({
+          weeklyActivity: currentWeekly,
+          challenges: currentChallenges,
+        });
+      }
+    };
+
+    const unsubWeekly = ProfileService.subscribeToWeeklyActivity(
+      userId,
+      (data) => {
+        currentWeekly = data;
+        checkAndUpdate();
+      },
+      onError
+    );
+
+    const unsubChallenges = ProfileService.subscribeToJoinedChallenges(
+      userId,
+      (data) => {
+        currentChallenges = data;
+        checkAndUpdate();
+      },
+      onError
+    );
+
+    // Return a function that unsubscribes from both
+    return () => {
+      unsubWeekly();
+      unsubChallenges();
+    };
+  },
+
+  // --- Keep Fetch Methods for Initial Server Side Props or non-realtime needs if necessary ---
+  fetchWeeklyActivity: async (userId: string): Promise<WeeklyChartData> => {
+    // ... (Implementation same as before if needed, or can just wrap subscribe in a promise)
+    return new Promise((resolve, reject) => {
+      const unsub = ProfileService.subscribeToWeeklyActivity(
+        userId,
+        (data) => {
+          resolve(data);
+          unsub();
+        },
+        reject
+      );
+    });
+  },
+
+  fetchJoinedChallenges: async (userId: string): Promise<JoinedChallenge[]> => {
+    return new Promise((resolve, reject) => {
+      const unsub = ProfileService.subscribeToJoinedChallenges(
+        userId,
+        (data) => {
+          resolve(data);
+          unsub();
+        },
+        reject
+      );
+    });
+  },
+
+  fetchProfileData: async (userId: string): Promise<ProfileData> => {
+    return new Promise((resolve, reject) => {
+      const unsub = ProfileService.subscribeToProfileData(
+        userId,
+        (data) => {
+          resolve(data);
+          unsub();
+        },
+        reject
+      );
+    });
   },
 };
