@@ -5,6 +5,7 @@ import {
   where,
   getDocs,
   addDoc,
+  onSnapshot, // Import onSnapshot for real-time updates
   FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
 import { Exercise } from "../types/Exercise";
@@ -108,7 +109,7 @@ export const ExerciseLibraryService = {
   },
 
   /**
-   * Fetches all exercise IDs that the user has already added
+   * Fetches all exercise IDs that the user has already added (One-time fetch)
    */
   fetchUserExerciseIds: async (userId: string): Promise<string[]> => {
     try {
@@ -131,5 +132,37 @@ export const ExerciseLibraryService = {
       console.error("Error fetching user exercise IDs:", error);
       throw new Error("FETCH_USER_EXERCISES_FAILED");
     }
+  },
+
+  /**
+   * Subscribes to user's exercise IDs for real-time updates
+   */
+  subscribeToUserExerciseIds: (
+    userId: string,
+    onUpdate: (ids: string[]) => void,
+    onError: (error: Error) => void
+  ) => {
+    const userExercisesRef = collection(db, "exercises_taken_by_user");
+    const q = query(userExercisesRef, where("userID", "==", userId));
+
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const exerciseIds: string[] = [];
+        snapshot.forEach(
+          (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+            const data = doc.data();
+            if (data.exerciseID) {
+              exerciseIds.push(data.exerciseID);
+            }
+          }
+        );
+        onUpdate(exerciseIds);
+      },
+      (error) => {
+        console.error("Error subscribing to user exercise IDs:", error);
+        onError(error);
+      }
+    );
   },
 };

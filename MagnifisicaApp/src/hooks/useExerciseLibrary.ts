@@ -1,7 +1,8 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ExerciseLibraryService } from "../services/ExerciseLibraryService";
 import { Exercise } from "../types/Exercise";
-import { exerciseKeys } from "./useExercise";
+import { exerciseKeys } from "./useExercise"; // Ensure this path is correct
 
 // Query Keys
 export const exerciseLibraryKeys = {
@@ -25,14 +26,37 @@ export const useExerciseLibrary = () => {
 
 /**
  * Hook to fetch IDs of exercises the user has already added
+ * Updated to use Real-time subscription so buttons update instantly
  */
 export const useUserExerciseIds = (userId: string | undefined) => {
+  const queryClient = useQueryClient();
+  const queryKey = exerciseLibraryKeys.userExerciseIds(userId || "");
+
+  // Real-time subscription
+  useEffect(() => {
+    if (!userId) return;
+
+    const unsubscribe = ExerciseLibraryService.subscribeToUserExerciseIds(
+      userId,
+      (ids) => {
+        queryClient.setQueryData(queryKey, ids);
+      },
+      (error) => {
+        console.error("❌ Error watching user exercise IDs:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [userId, queryClient, queryKey]);
+
   return useQuery({
-    queryKey: exerciseLibraryKeys.userExerciseIds(userId!),
-    queryFn: () => ExerciseLibraryService.fetchUserExerciseIds(userId!),
+    queryKey,
+    queryFn: async () => {
+      if (!userId) return [];
+      return ExerciseLibraryService.fetchUserExerciseIds(userId);
+    },
     enabled: !!userId,
-    staleTime: 30 * 1000, // Refresh every 30 seconds
-    gcTime: 5 * 60 * 1000,
+    staleTime: Infinity, // Data managed by subscription
   });
 };
 
