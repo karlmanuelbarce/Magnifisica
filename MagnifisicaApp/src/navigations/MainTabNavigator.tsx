@@ -4,12 +4,10 @@ import HomeScreen from "../screens/HomeScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import ChallengeScreen from "../screens/ChallengeScreen";
 import RecordScreen from "../screens/RecordScreen";
-import AdminChallengeScreen from "../screens/AdminChallengeScreen";
 
 import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
 import FontAwesome from "react-native-vector-icons/FontAwesome";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 
 import { useAuthStore } from "../store/authstore";
 
@@ -82,24 +80,6 @@ const MainTabNavigator = () => {
           ),
         }}
       />
-
-      {/* Admin tab - only visible to admins */}
-      {isAdmin && (
-        <Tab.Screen
-          name="Admin"
-          component={AdminChallengeScreen}
-          options={{
-            tabBarIcon: ({ color, size }) => (
-              <MaterialIcons
-                name="admin-panel-settings"
-                size={size * 1.2}
-                color={color}
-              />
-            ),
-            tabBarLabel: "Admin",
-          }}
-        />
-      )}
     </Tab.Navigator>
   );
 };
