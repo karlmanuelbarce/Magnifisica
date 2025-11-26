@@ -112,10 +112,13 @@ export const RouteService = {
               latitude: data.endPoint.latitude,
               longitude: data.endPoint.longitude,
             },
-            routePoints: data.routePoints.map((point: any) => ({
-              latitude: point.latitude,
-              longitude: point.longitude,
-            })),
+            // FIX: Cast data.routePoints to GeoPoint[] and type the map parameter
+            routePoints: (data.routePoints as GeoPoint[]).map(
+              (point: GeoPoint) => ({
+                latitude: point.latitude,
+                longitude: point.longitude,
+              })
+            ),
           } as RouteData;
         }
       );
@@ -162,10 +165,13 @@ export const RouteService = {
               latitude: data.endPoint.latitude,
               longitude: data.endPoint.longitude,
             },
-            routePoints: data.routePoints.map((point: any) => ({
-              latitude: point.latitude,
-              longitude: point.longitude,
-            })),
+            // FIX: Cast data.routePoints to GeoPoint[] and type the map parameter
+            routePoints: (data.routePoints as GeoPoint[]).map(
+              (point: GeoPoint) => ({
+                latitude: point.latitude,
+                longitude: point.longitude,
+              })
+            ),
           } as RouteData;
         }
       );

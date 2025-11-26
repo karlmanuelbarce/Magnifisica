@@ -22,7 +22,7 @@ import {
   useUserExercises,
   useToggleExercise,
   useRemoveExercise,
-} from "../store/exerciseStore";
+} from "../hooks/useExercise";
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<MainStackParamList>>();
@@ -96,7 +96,9 @@ const HomeScreen: React.FC = () => {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Welcome!</Text>
-          <Text style={styles.headerSubtitle}>Here's your plan for today.</Text>
+          <Text style={styles.headerSubtitle}>
+            Here&#39;s your plan for today.
+          </Text>
         </View>
 
         {/* Progress Card */}
@@ -144,7 +146,7 @@ const HomeScreen: React.FC = () => {
             ListHeaderComponent={
               goalAmount > 0 ? (
                 <View style={styles.listHeaderContainer}>
-                  <Text style={styles.listHeader}>Today's Workout</Text>
+                  <Text style={styles.listHeader}>Today&#39;s Workout</Text>
                   <TouchableOpacity
                     style={styles.editButton}
                     onPress={() => setIsEditing(!isEditing)}
@@ -165,7 +167,7 @@ const HomeScreen: React.FC = () => {
                   No exercises added yet.
                 </Text>
                 <Text style={styles.emptyListSubtext}>
-                  Tap the '+' to add one!
+                  Tap the &#39;+&#39; to add one!
                 </Text>
               </View>
             }

@@ -22,7 +22,7 @@ import {
   useExerciseLibrary,
   useUserExerciseIds,
   useAddExerciseToUser,
-} from "../../store/exerciseLibraryStore";
+} from "../../hooks/useExerciseLibrary";
 
 const AddExercise: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<MainStackParamList>>();

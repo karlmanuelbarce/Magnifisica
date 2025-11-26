@@ -4,33 +4,38 @@ import HomeScreen from "../screens/HomeScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import ChallengeScreen from "../screens/ChallengeScreen";
 import RecordScreen from "../screens/RecordScreen";
+import AdminChallengeScreen from "../screens/AdminChallengeScreen";
 
 import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
 import FontAwesome from "react-native-vector-icons/FontAwesome";
-
-// Import Ionicons for a better 'Record' icon
 import Ionicons from "react-native-vector-icons/Ionicons";
+import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+
+import { useAuthStore } from "../store/authstore";
 
 const Tab = createBottomTabNavigator();
 
 const MainTabNavigator = () => {
+  const isAdmin = useAuthStore((state) => state.isAdmin);
+
+  // Debug logging
+  console.log("🔧 MainTabNavigator - isAdmin:", isAdmin);
+
   return (
     <Tab.Navigator
       screenOptions={{
-        // --- DESIGN CHANGES ---
-        headerShown: false, // Hides the default header from the tab navigator
+        headerShown: false,
         tabBarActiveTintColor: "#39FF14", // Electric Lime Green
         tabBarInactiveTintColor: "#888888", // Muted Gray
         tabBarStyle: {
           backgroundColor: "#1E1E1E", // Dark card background
           borderTopColor: "#333333", // Dark border
-          paddingTop: 4, // Optional: add some padding
+          paddingTop: 4,
         },
         tabBarLabelStyle: {
           fontWeight: "600",
           fontSize: 10,
         },
-        // --- END DESIGN CHANGES ---
       }}
     >
       <Tab.Screen
@@ -38,11 +43,7 @@ const MainTabNavigator = () => {
         component={HomeScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome6
-              name={"house"} // 'house' is a solid icon
-              size={size * 0.9}
-              color={color}
-            />
+            <FontAwesome6 name={"house"} size={size * 0.9} color={color} />
           ),
         }}
       />
@@ -51,10 +52,9 @@ const MainTabNavigator = () => {
         component={RecordScreen}
         options={{
           tabBarIcon: ({ focused, color, size }) => (
-            // Switched to Ionicons for a better 'play' circle
             <Ionicons
               name={focused ? "play-circle" : "play-circle-outline"}
-              size={size * 1.1} // Slightly larger
+              size={size * 1.1}
               color={color}
             />
           ),
@@ -65,11 +65,7 @@ const MainTabNavigator = () => {
         component={ChallengeScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome
-              name={"trophy"}
-              size={size * 1.1} // Slightly larger
-              color={color}
-            />
+            <FontAwesome name={"trophy"} size={size * 1.1} color={color} />
           ),
         }}
       />
@@ -86,6 +82,24 @@ const MainTabNavigator = () => {
           ),
         }}
       />
+
+      {/* Admin tab - only visible to admins */}
+      {isAdmin && (
+        <Tab.Screen
+          name="Admin"
+          component={AdminChallengeScreen}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <MaterialIcons
+                name="admin-panel-settings"
+                size={size * 1.2}
+                color={color}
+              />
+            ),
+            tabBarLabel: "Admin",
+          }}
+        />
+      )}
     </Tab.Navigator>
   );
 };

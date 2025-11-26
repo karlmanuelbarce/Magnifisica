@@ -21,8 +21,13 @@ import {
   createUserWithEmailAndPassword,
 } from "@react-native-firebase/auth";
 
+// --- 🆕 NEW: Import Firestore functions ---
+import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
+
 // --- 3. Get the auth instance once ---
 const auth = getAuth();
+// --- 🆕 NEW: Get the Firestore instance ---
+const db = getFirestore();
 
 const SignupScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<AuthStackParamList>>();
@@ -45,7 +50,21 @@ const SignupScreen: React.FC = () => {
     try {
       // --- 4. Use the new modular syntax ---
       // Pass the 'auth' instance as the first argument
-      await createUserWithEmailAndPassword(auth, email, password);
+      // 🆕 CHANGED: Store the userCredential so we can get the UID
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      // --- 🆕 NEW: Create user document in Firestore with default role ---
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+        email: email,
+        role: "user", // Default role - can be changed to "admin" later
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
       // The auth listener in your RootStack will handle navigation
       Alert.alert("Account Created", "Your account was created successfully!");
     } catch (error: unknown) {

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AuthStackNavigator from "./AuthStackNavigator";
 import MainStackNavigator from "./MainStackNavigator";
 import { useAuthStore } from "../store/authstore";
+import { tokenRefreshService } from "../utils/tokenRefreshService";
 
 // Create QueryClient instance OUTSIDE component
 const queryClient = new QueryClient({
@@ -28,13 +29,24 @@ const RootStackNavigator: React.FC = () => {
   const isLoading = useAuthStore((state) => state.isLoading);
   const checkAuth = useAuthStore((state) => state.checkAuth);
 
+  // Setup auth state listener
   useEffect(() => {
-    // Call checkAuth() and store the returned unsubscribe function
     const unsubscribe = checkAuth();
-
-    // This is called when the component unmounts
     return () => unsubscribe();
   }, [checkAuth]);
+
+  // Handle token refresh service
+  useEffect(() => {
+    if (user) {
+      // Start auto-refresh when user logs in
+      tokenRefreshService.startAutoRefresh();
+    } else {
+      // Stop auto-refresh when user logs out
+      tokenRefreshService.stopAutoRefresh();
+    }
+
+    return () => tokenRefreshService.stopAutoRefresh();
+  }, [user]);
 
   if (isLoading) {
     return (

@@ -14,7 +14,7 @@ import { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
 import { LineChart } from "react-native-chart-kit";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useAuthStore } from "../store/authstore";
-import { useProfileData } from "../store/profileStore";
+import { useProfileData } from "../hooks/userProfile";
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -123,7 +123,7 @@ const ProfileScreen: React.FC = () => {
     if (joinedChallenges.length === 0) {
       return (
         <Text style={styles.noDataText}>
-          You haven't joined any challenges yet.
+          You haven&#39;t joined any challenges yet.
         </Text>
       );
     }

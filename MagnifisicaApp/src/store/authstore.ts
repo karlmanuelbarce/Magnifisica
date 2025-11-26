@@ -5,44 +5,47 @@ import {
   signOut,
   FirebaseAuthTypes,
 } from "@react-native-firebase/auth";
+import { getFirestore, doc, getDoc } from "@react-native-firebase/firestore";
 
 const auth = getAuth();
+const db = getFirestore();
 
 interface AuthState {
   user: FirebaseAuthTypes.User | null;
   isLoading: boolean;
+  isAdmin: boolean;
 
   checkAuth: () => () => void;
   logout: () => void;
-
-  /**
-   * Retrieves the current valid ID token (JWT) for the user.
-   * Firebase handles expiration and refreshing automatically.
-   * @param forceRefresh - Set to true if your backend returns a 401, forcing a fresh token fetch.
-   */
   getToken: (forceRefresh?: boolean) => Promise<string | null>;
+  checkAdminRole: (userId: string) => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: true,
+  isAdmin: false,
 
   checkAuth: () => {
     set({ isLoading: true });
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      set({ user: user, isLoading: false });
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Check if user is admin
+        await get().checkAdminRole(user.uid);
+        set({ user: user, isLoading: false });
+      } else {
+        set({ user: null, isAdmin: false, isLoading: false });
+      }
     });
     return unsubscribe;
   },
 
   logout: async () => {
     await signOut(auth);
-    set({ user: null });
+    set({ user: null, isAdmin: false });
   },
 
-  // --- IMPLEMENTATION OF SECURE JWT TOKEN RETRIEVAL ---
   getToken: async (forceRefresh = false) => {
-    // Firebase ID Tokens are JWTs. This method retrieves the current valid JWT.
     const currentUser = auth.currentUser;
 
     if (!currentUser) {
@@ -50,13 +53,28 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     try {
-      // getIdToken handles the "Token expired" and "Refresh token" steps
-      // shown in your diagram automatically.
       const token = await currentUser.getIdToken(forceRefresh);
       return token;
     } catch (error) {
       console.error("Error retrieving JWT token:", error);
       return null;
+    }
+  },
+
+  checkAdminRole: async (userId: string) => {
+    try {
+      const userDoc = await getDoc(doc(db, "users", userId));
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const isAdmin = userData?.role === "admin";
+        set({ isAdmin });
+      } else {
+        set({ isAdmin: false });
+      }
+    } catch (error) {
+      console.error("Error checking admin role:", error);
+      set({ isAdmin: false });
     }
   },
 }));

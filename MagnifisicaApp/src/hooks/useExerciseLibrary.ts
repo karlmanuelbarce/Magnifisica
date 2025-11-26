@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ExerciseLibraryService } from "../services/ExerciseLibraryService";
 import { Exercise } from "../types/Exercise";
-import { exerciseKeys } from "./exerciseStore";
+import { exerciseKeys } from "./useExercise";
 
 // Query Keys
 export const exerciseLibraryKeys = {
