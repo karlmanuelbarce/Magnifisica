@@ -1,45 +1,70 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ExerciseService } from "../services/ExerciseService";
 import { ExerciseTodo } from "../types/ExerciseTodo";
 
-// Query Keys - Centralized for cache management
+// --- Query Keys ---
 export const exerciseKeys = {
   all: ["exercises"] as const,
-  user: (userId: string) => [...exerciseKeys.all, userId] as const,
+  user: (userId: string) => [...exerciseKeys.all, "user", userId] as const,
 };
 
+// --- Hooks ---
+
 /**
- * Hook to subscribe to user's exercises with real-time updates
- * Note: This uses polling to simulate real-time updates with React Query
+ * Hook to fetch and subscribe to a user's exercises.
+ * FIX: Now uses useEffect to maintain a persistent real-time connection.
  */
 export const useUserExercises = (userId: string | undefined) => {
+  const queryClient = useQueryClient();
+  const queryKey = exerciseKeys.user(userId || "");
+
+  // 1. Setup Real-time Subscription
+  useEffect(() => {
+    if (!userId) return;
+
+    // Subscribe to Firestore
+    const unsubscribe = ExerciseService.subscribeToUserExercises(
+      userId,
+      (data) => {
+        // When data changes in DB, update React Query cache immediately
+        queryClient.setQueryData<ExerciseTodo[]>(queryKey, data);
+      },
+      (error) => {
+        console.error("❌ Exercise subscription error:", error);
+      }
+    );
+
+    // Cleanup listener when component unmounts or userId changes
+    return () => {
+      unsubscribe();
+    };
+  }, [userId, queryClient, queryKey]);
+
+  // 2. Use Query for initial state management
   return useQuery({
-    queryKey: exerciseKeys.user(userId!),
+    queryKey,
+    // Initial fetch (wraps subscription for the first load)
     queryFn: async () => {
+      if (!userId) return [];
       return new Promise<ExerciseTodo[]>((resolve, reject) => {
-        // Use the service's subscribe method to get data
         const unsubscribe = ExerciseService.subscribeToUserExercises(
-          userId!,
-          (exercises) => {
-            resolve(exercises);
-            unsubscribe(); // Unsubscribe immediately after getting data
+          userId,
+          (data) => {
+            resolve(data);
+            unsubscribe(); // We only need this for the very first paint
           },
-          (error) => {
-            reject(error);
-          }
+          (error) => reject(error)
         );
       });
     },
     enabled: !!userId,
-    staleTime: 30 * 1000, // Consider data stale after 30 seconds
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-    refetchInterval: 5000, // Poll every 5 seconds for updates
-    refetchOnWindowFocus: true, // Refetch when user returns to app
+    staleTime: Infinity, // Data is kept fresh by the subscription
   });
 };
 
 /**
- * Hook to toggle exercise completion status
+ * Hook to toggle exercise completion status with Optimistic Updates.
  */
 export const useToggleExercise = () => {
   const queryClient = useQueryClient();
@@ -54,18 +79,13 @@ export const useToggleExercise = () => {
       userId: string;
     }) => ExerciseService.toggleExerciseStatus(id, currentStatus),
 
-    // Optimistic update - immediately update UI before server response
+    // Update UI immediately
     onMutate: async ({ id, currentStatus, userId }) => {
       const queryKey = exerciseKeys.user(userId);
-
-      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey });
-
-      // Snapshot previous value
       const previousExercises =
         queryClient.getQueryData<ExerciseTodo[]>(queryKey);
 
-      // Optimistically update
       queryClient.setQueryData<ExerciseTodo[]>(queryKey, (old) =>
         old?.map((ex) =>
           ex.id === id ? { ...ex, isDone: !currentStatus } : ex
@@ -75,14 +95,12 @@ export const useToggleExercise = () => {
       return { previousExercises, queryKey };
     },
 
-    // Rollback on error
     onError: (err, variables, context) => {
       if (context?.previousExercises) {
         queryClient.setQueryData(context.queryKey, context.previousExercises);
       }
     },
 
-    // Refetch after mutation
     onSettled: (data, error, variables, context) => {
       if (context?.queryKey) {
         queryClient.invalidateQueries({ queryKey: context.queryKey });
@@ -92,7 +110,7 @@ export const useToggleExercise = () => {
 };
 
 /**
- * Hook to remove an exercise
+ * Hook to remove an exercise with Optimistic Updates.
  */
 export const useRemoveExercise = () => {
   const queryClient = useQueryClient();
@@ -101,16 +119,13 @@ export const useRemoveExercise = () => {
     mutationFn: ({ exerciseId }: { exerciseId: string; userId: string }) =>
       ExerciseService.removeUserExercise(exerciseId),
 
-    // Optimistic update
+    // Update UI immediately
     onMutate: async ({ exerciseId, userId }) => {
       const queryKey = exerciseKeys.user(userId);
-
       await queryClient.cancelQueries({ queryKey });
-
       const previousExercises =
         queryClient.getQueryData<ExerciseTodo[]>(queryKey);
 
-      // Optimistically remove from list
       queryClient.setQueryData<ExerciseTodo[]>(queryKey, (old) =>
         old?.filter((ex) => ex.id !== exerciseId)
       );
@@ -130,46 +145,4 @@ export const useRemoveExercise = () => {
       }
     },
   });
-};
-
-/**
- * Hook to invalidate exercise cache
- * Useful after adding a new exercise
- */
-export const useInvalidateExercises = () => {
-  const queryClient = useQueryClient();
-
-  return {
-    invalidateAll: () =>
-      queryClient.invalidateQueries({ queryKey: exerciseKeys.all }),
-    invalidateUser: (userId: string) =>
-      queryClient.invalidateQueries({ queryKey: exerciseKeys.user(userId) }),
-  };
-};
-
-/**
- * Hook to prefetch exercises
- * Useful for optimistic loading
- */
-export const usePrefetchExercises = () => {
-  const queryClient = useQueryClient();
-
-  return (userId: string) =>
-    queryClient.prefetchQuery({
-      queryKey: exerciseKeys.user(userId),
-      queryFn: async () => {
-        return new Promise<ExerciseTodo[]>((resolve, reject) => {
-          const unsubscribe = ExerciseService.subscribeToUserExercises(
-            userId,
-            (exercises) => {
-              resolve(exercises);
-              unsubscribe();
-            },
-            (error) => {
-              reject(error);
-            }
-          );
-        });
-      },
-    });
 };
