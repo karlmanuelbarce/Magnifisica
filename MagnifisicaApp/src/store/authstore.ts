@@ -1,4 +1,3 @@
-import { create } from "zustand";
 import {
   getAuth,
   onAuthStateChanged,
@@ -6,6 +5,7 @@ import {
   FirebaseAuthTypes,
 } from "@react-native-firebase/auth";
 import { getFirestore, doc, getDoc } from "@react-native-firebase/firestore";
+import { create } from "zustand";
 
 const auth = getAuth();
 const db = getFirestore();

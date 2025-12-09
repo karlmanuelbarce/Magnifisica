@@ -1,9 +1,11 @@
-import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
-import MainTabNavigator from "./MainTabNavigator";
+import React from "react";
+
 import AddExercise from "../screens/exercisescreens/AddExerciseScreen";
 import ExerciseDetailScreen from "../screens/exercisescreens/ExerciseDetailScreen";
 import { Exercise } from "../types/Exercise";
+
+import MainTabNavigator from "./MainTabNavigator";
 
 // Define the param list BEFORE creating the stack
 export type MainStackParamList = {

@@ -1,3 +1,4 @@
+import { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
 import React from "react";
 import {
   View,
@@ -10,11 +11,10 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
-import { LineChart } from "react-native-chart-kit";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import { useAuthStore } from "../store/authstore";
+
 import { useProfileData } from "../hooks/userProfile";
+import { useAuthStore } from "../store/authstore";
 
 const screenWidth = Dimensions.get("window").width;
 

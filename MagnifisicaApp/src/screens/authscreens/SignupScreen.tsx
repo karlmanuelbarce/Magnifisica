@@ -1,3 +1,10 @@
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+} from "@react-native-firebase/auth";
+import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
+import { useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
 import {
   View,
@@ -8,23 +15,10 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-// --- 1. Import SafeAreaView from the correct package ---
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { AuthStackParamList } from "../../navigations/AuthStackNavigator";
 
-import { useNavigation } from "@react-navigation/native";
-import { StackNavigationProp } from "@react-navigation/stack";
-
-// --- 2. Import the new modular auth functions ---
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-} from "@react-native-firebase/auth";
-
-// --- 🆕 NEW: Import Firestore functions ---
-import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
-
-// --- 3. Get the auth instance once ---
 const auth = getAuth();
 // --- 🆕 NEW: Get the Firestore instance ---
 const db = getFirestore();

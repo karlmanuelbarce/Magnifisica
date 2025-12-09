@@ -1,3 +1,4 @@
+import MapLibreGL, { LineLayerStyle } from "@maplibre/maplibre-react-native";
 import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
@@ -10,15 +11,15 @@ import {
   Modal,
   ActivityIndicator,
 } from "react-native";
-import MapLibreGL, { LineLayerStyle } from "@maplibre/maplibre-react-native";
 import Geolocation, {
   GeoPosition,
   GeoError,
 } from "react-native-geolocation-service";
-import Ionicons from "react-native-vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuthStore } from "../store/authstore";
+import Ionicons from "react-native-vector-icons/Ionicons";
+
 import { useSaveRoute } from "../hooks/useRoute";
+import { useAuthStore } from "../store/authstore";
 
 // Haversine formula
 const haversineDistance = (

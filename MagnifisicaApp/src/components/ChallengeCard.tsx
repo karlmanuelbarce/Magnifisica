@@ -1,5 +1,3 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import {
   getFirestore,
   doc,
@@ -8,6 +6,9 @@ import {
   serverTimestamp,
   FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
+
 import { useAuthStore } from "../store/authstore";
 
 // --- 2. Get Firestore instance ---

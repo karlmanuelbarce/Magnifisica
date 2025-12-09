@@ -1,11 +1,13 @@
-import React, { useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
-import { ActivityIndicator, View } from "react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import AuthStackNavigator from "./AuthStackNavigator";
-import MainStackNavigator from "./MainStackNavigator";
+import React, { useEffect } from "react";
+import { ActivityIndicator, View } from "react-native";
+
 import { useAuthStore } from "../store/authstore";
 import { tokenRefreshService } from "../utils/tokenRefreshService";
+
+import AuthStackNavigator from "./AuthStackNavigator";
+import MainStackNavigator from "./MainStackNavigator";
 
 // Create QueryClient instance OUTSIDE component
 const queryClient = new QueryClient({

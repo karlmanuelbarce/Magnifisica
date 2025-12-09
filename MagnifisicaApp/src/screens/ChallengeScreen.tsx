@@ -1,3 +1,10 @@
+import notifee, { AndroidImportance } from "@notifee/react-native";
+import {
+  getFirestore,
+  collection,
+  onSnapshot,
+  FirebaseFirestoreTypes,
+} from "@react-native-firebase/firestore";
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -7,17 +14,6 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-// --- 1. Import new modular functions and Firestore Types ---
-import {
-  getFirestore,
-  collection,
-  onSnapshot,
-  FirebaseFirestoreTypes, // <-- IMPORTED
-} from "@react-native-firebase/firestore";
-
-// --- 2. Import Notifee ---
-import notifee, { AndroidImportance } from "@notifee/react-native";
 
 import ChallengeCard, { Challenge } from "../components/ChallengeCard";
 
