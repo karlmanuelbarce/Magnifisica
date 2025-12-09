@@ -1,8 +1,5 @@
-// ===========================================
-// ROUTE QUERIES - For RecordScreen
-// ===========================================
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
 import {
   RouteService,
   SaveRouteParams,

@@ -8,6 +8,7 @@ import {
   onSnapshot, // Import onSnapshot for real-time updates
   FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
+
 import { Exercise } from "../types/Exercise";
 
 const db = getFirestore();

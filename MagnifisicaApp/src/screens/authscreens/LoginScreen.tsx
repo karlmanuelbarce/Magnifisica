@@ -1,3 +1,9 @@
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+} from "@react-native-firebase/auth";
+import { useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
 import {
   View,
@@ -10,18 +16,9 @@ import {
 } from "react-native";
 // --- 1. Import SafeAreaView from the correct package ---
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { AuthStackParamList } from "../../navigations/AuthStackNavigator";
 
-import { useNavigation } from "@react-navigation/native";
-import { StackNavigationProp } from "@react-navigation/stack";
-
-// --- 2. Import the new modular auth functions ---
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-} from "@react-native-firebase/auth";
-
-// --- 3. Get the auth instance once ---
 const auth = getAuth();
 
 const LoginScreen: React.FC = () => {

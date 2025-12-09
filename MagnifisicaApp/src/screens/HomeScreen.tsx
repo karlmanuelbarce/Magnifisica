@@ -1,3 +1,5 @@
+import { useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
 import React, { useState } from "react";
 import {
   View,
@@ -8,21 +10,18 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
-import { StackNavigationProp } from "@react-navigation/stack";
-import { MainStackParamList } from "../navigations/MainStackNavigator";
 import { AnimatedCircularProgress } from "react-native-circular-progress";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import ExerciseTodoCard from "../components/ExerciseTodoCard";
-import { useAuthStore } from "../store/authstore";
 
-// --- Import React Query Hooks ---
+import ExerciseTodoCard from "../components/ExerciseTodoCard";
 import {
   useUserExercises,
   useToggleExercise,
   useRemoveExercise,
 } from "../hooks/useExercise";
+import { MainStackParamList } from "../navigations/MainStackNavigator";
+import { useAuthStore } from "../store/authstore";
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<MainStackParamList>>();

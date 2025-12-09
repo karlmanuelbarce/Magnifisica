@@ -1,4 +1,5 @@
 import { getAuth } from "@react-native-firebase/auth";
+
 import { useAuthStore } from "../store/authstore";
 
 const auth = getAuth();

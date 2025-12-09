@@ -1,16 +1,15 @@
-import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import HomeScreen from "../screens/HomeScreen";
-import ProfileScreen from "../screens/ProfileScreen";
-import ChallengeScreen from "../screens/ChallengeScreen";
-import RecordScreen from "../screens/RecordScreen";
-import AdminChallengeScreen from "../screens/AdminChallengeScreen";
-
-import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
+import React from "react";
 import FontAwesome from "react-native-vector-icons/FontAwesome";
+import FontAwesome6 from "react-native-vector-icons/FontAwesome6";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 
+import AdminChallengeScreen from "../screens/AdminChallengeScreen";
+import ChallengeScreen from "../screens/ChallengeScreen";
+import HomeScreen from "../screens/HomeScreen";
+import ProfileScreen from "../screens/ProfileScreen";
+import RecordScreen from "../screens/RecordScreen";
 import { useAuthStore } from "../store/authstore";
 
 const Tab = createBottomTabNavigator();

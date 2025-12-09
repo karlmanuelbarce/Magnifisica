@@ -1,3 +1,4 @@
+import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
 import React from "react";
 import {
   View,
@@ -7,9 +8,9 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
-import { MainStackParamList } from "../../navigations/MainStackNavigator";
 import Ionicons from "react-native-vector-icons/Ionicons";
+
+import { MainStackParamList } from "../../navigations/MainStackNavigator";
 
 type ExerciseDetailScreenRouteProp = RouteProp<
   MainStackParamList,

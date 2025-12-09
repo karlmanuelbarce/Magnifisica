@@ -1,5 +1,6 @@
-import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+
 import { ExerciseService } from "../services/ExerciseService";
 import { ExerciseTodo } from "../types/ExerciseTodo";
 

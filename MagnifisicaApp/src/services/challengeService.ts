@@ -1,3 +1,4 @@
+import notifee, { AndroidImportance } from "@notifee/react-native";
 import {
   getFirestore,
   collection,
@@ -10,7 +11,7 @@ import {
   getDocs,
   FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
-import notifee, { AndroidImportance } from "@notifee/react-native";
+
 import { Challenge } from "../components/ChallengeCard";
 
 const db = getFirestore();

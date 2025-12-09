@@ -9,6 +9,7 @@ import {
   deleteDoc,
   FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
+
 import { ExerciseTodo } from "../types/ExerciseTodo";
 
 const db = getFirestore();
