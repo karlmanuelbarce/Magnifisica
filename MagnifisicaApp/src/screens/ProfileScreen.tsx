@@ -10,6 +10,7 @@ import {
   ScrollView,
   RefreshControl,
 } from "react-native";
+import { LineChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "react-native-vector-icons/Ionicons";
 

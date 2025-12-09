@@ -1,3 +1,9 @@
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  serverTimestamp,
+} from "@react-native-firebase/firestore";
 import React, { useState } from "react";
 import {
   Text,
@@ -9,12 +15,6 @@ import {
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  serverTimestamp,
-} from "@react-native-firebase/firestore";
 
 const db = getFirestore();
 
