@@ -12,6 +12,8 @@ import {
   FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
 
+import { logger } from "../utils/logger";
+
 const db = getFirestore();
 
 export interface RouteData {
@@ -51,14 +53,40 @@ export const RouteService = {
 
       // Validate data
       if (!userId) {
+        logger.error(
+          "Route save failed: User ID is required",
+          null,
+          "RouteService"
+        );
         throw new Error("User ID is required");
       }
       if (distanceMeters <= 0) {
+        logger.error(
+          "Route save failed: Invalid distance",
+          { distanceMeters },
+          "RouteService"
+        );
         throw new Error("Distance must be greater than 0");
       }
       if (!startPoint || !endPoint) {
+        logger.error(
+          "Route save failed: Missing coordinates",
+          { hasStart: !!startPoint, hasEnd: !!endPoint },
+          "RouteService"
+        );
         throw new Error("Start and end points are required");
       }
+
+      logger.info(
+        "Saving route",
+        {
+          userId,
+          distanceMeters,
+          durationSeconds,
+          routePointsCount: routePoints.length,
+        },
+        "RouteService"
+      );
 
       const routesCollection = collection(db, "routes");
       const docRef = await addDoc(routesCollection, {
@@ -73,10 +101,20 @@ export const RouteService = {
         ),
       });
 
-      console.log("Route saved successfully with ID:", docRef.id);
+      logger.success(
+        `Route saved successfully: ${docRef.id}`,
+        {
+          routeId: docRef.id,
+          userId,
+          distanceKm: (distanceMeters / 1000).toFixed(2),
+          durationMin: (durationSeconds / 60).toFixed(1),
+        },
+        "RouteService"
+      );
+
       return docRef.id;
     } catch (error) {
-      console.error("Error saving route:", error);
+      logger.error("Error saving route", error, "RouteService");
       throw new Error("SAVE_ROUTE_FAILED");
     }
   },
@@ -86,6 +124,8 @@ export const RouteService = {
    */
   fetchUserRoutes: async (userId: string): Promise<RouteData[]> => {
     try {
+      logger.info("Fetching all user routes", { userId }, "RouteService");
+
       const routesRef = collection(db, "routes");
       const q = query(
         routesRef,
@@ -112,7 +152,6 @@ export const RouteService = {
               latitude: data.endPoint.latitude,
               longitude: data.endPoint.longitude,
             },
-            // FIX: Cast data.routePoints to GeoPoint[] and type the map parameter
             routePoints: (data.routePoints as GeoPoint[]).map(
               (point: GeoPoint) => ({
                 latitude: point.latitude,
@@ -123,9 +162,15 @@ export const RouteService = {
         }
       );
 
+      logger.success(
+        `Fetched user routes: ${routes.length}`,
+        { userId, count: routes.length },
+        "RouteService"
+      );
+
       return routes;
     } catch (error) {
-      console.error("Error fetching user routes:", error);
+      logger.error("Error fetching user routes", error, "RouteService");
       throw new Error("FETCH_ROUTES_FAILED");
     }
   },
@@ -138,6 +183,12 @@ export const RouteService = {
     limitCount: number = 10
   ): Promise<RouteData[]> => {
     try {
+      logger.info(
+        `Fetching recent routes (limit: ${limitCount})`,
+        { userId, limitCount },
+        "RouteService"
+      );
+
       const routesRef = collection(db, "routes");
       const q = query(
         routesRef,
@@ -165,7 +216,6 @@ export const RouteService = {
               latitude: data.endPoint.latitude,
               longitude: data.endPoint.longitude,
             },
-            // FIX: Cast data.routePoints to GeoPoint[] and type the map parameter
             routePoints: (data.routePoints as GeoPoint[]).map(
               (point: GeoPoint) => ({
                 latitude: point.latitude,
@@ -176,9 +226,15 @@ export const RouteService = {
         }
       );
 
+      logger.success(
+        `Fetched recent routes: ${routes.length}`,
+        { userId, count: routes.length, limitCount },
+        "RouteService"
+      );
+
       return routes;
     } catch (error) {
-      console.error("Error fetching recent routes:", error);
+      logger.error("Error fetching recent routes", error, "RouteService");
       throw new Error("FETCH_RECENT_ROUTES_FAILED");
     }
   },
@@ -196,6 +252,8 @@ export const RouteService = {
     averageDuration: number;
   }> => {
     try {
+      logger.info("Calculating user stats", { userId }, "RouteService");
+
       const routes = await RouteService.fetchUserRoutes(userId);
 
       const totalDistance = routes.reduce(
@@ -208,15 +266,28 @@ export const RouteService = {
       );
       const totalRoutes = routes.length;
 
-      return {
+      const stats = {
         totalDistance,
         totalDuration,
         totalRoutes,
         averageDistance: totalRoutes > 0 ? totalDistance / totalRoutes : 0,
         averageDuration: totalRoutes > 0 ? totalDuration / totalRoutes : 0,
       };
+
+      logger.success(
+        "User stats calculated",
+        {
+          userId,
+          totalRoutes,
+          totalDistanceKm: (totalDistance / 1000).toFixed(2),
+          totalDurationHours: (totalDuration / 3600).toFixed(2),
+        },
+        "RouteService"
+      );
+
+      return stats;
     } catch (error) {
-      console.error("Error calculating user stats:", error);
+      logger.error("Error calculating user stats", error, "RouteService");
       throw new Error("CALCULATE_STATS_FAILED");
     }
   },

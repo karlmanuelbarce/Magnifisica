@@ -16,6 +16,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { logger } from "../utils/logger";
+
 const db = getFirestore();
 
 const AdminChallengeScreen: React.FC = () => {
@@ -27,14 +29,36 @@ const AdminChallengeScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCreateChallenge = async () => {
+    logger.info(
+      "Admin attempting to create challenge",
+      { title },
+      "AdminChallengeScreen"
+    );
+
     // Validation
     if (!title || !description || !targetMetre || !startDate || !endDate) {
+      logger.warn(
+        "Challenge creation validation failed: missing fields",
+        {
+          hasTitle: !!title,
+          hasDescription: !!description,
+          hasTargetMetre: !!targetMetre,
+          hasStartDate: !!startDate,
+          hasEndDate: !!endDate,
+        },
+        "AdminChallengeScreen"
+      );
       Alert.alert("Error", "Please fill in all fields.");
       return;
     }
 
     const targetMetreNum = parseInt(targetMetre);
     if (isNaN(targetMetreNum) || targetMetreNum <= 0) {
+      logger.warn(
+        "Challenge creation validation failed: invalid target distance",
+        { targetMetre, parsedValue: targetMetreNum },
+        "AdminChallengeScreen"
+      );
       Alert.alert("Error", "Target distance must be a valid positive number.");
       return;
     }
@@ -44,6 +68,11 @@ const AdminChallengeScreen: React.FC = () => {
     const end = new Date(endDate);
 
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      logger.warn(
+        "Challenge creation validation failed: invalid date format",
+        { startDate, endDate },
+        "AdminChallengeScreen"
+      );
       Alert.alert(
         "Error",
         "Invalid date format. Please use YYYY-MM-DD format."
@@ -52,6 +81,11 @@ const AdminChallengeScreen: React.FC = () => {
     }
 
     if (end <= start) {
+      logger.warn(
+        "Challenge creation validation failed: end date before start date",
+        { startDate, endDate },
+        "AdminChallengeScreen"
+      );
       Alert.alert("Error", "End date must be after start date.");
       return;
     }
@@ -68,7 +102,30 @@ const AdminChallengeScreen: React.FC = () => {
         createdAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, "Challenge"), challengeData);
+      logger.debug(
+        "Creating challenge in Firestore",
+        {
+          title: challengeData.title,
+          targetMetre: challengeData.TargetMetre,
+          startDate: startDate,
+          endDate: endDate,
+        },
+        "AdminChallengeScreen"
+      );
+
+      const docRef = await addDoc(collection(db, "Challenge"), challengeData);
+
+      logger.success(
+        "Challenge created successfully",
+        {
+          challengeId: docRef.id,
+          title: challengeData.title,
+          targetMetre: challengeData.TargetMetre,
+          startDate: startDate,
+          endDate: endDate,
+        },
+        "AdminChallengeScreen"
+      );
 
       Alert.alert("Success", "Challenge created successfully!");
 
@@ -79,7 +136,17 @@ const AdminChallengeScreen: React.FC = () => {
       setStartDate("");
       setEndDate("");
     } catch (error) {
-      console.error("Error creating challenge:", error);
+      logger.error(
+        "Failed to create challenge",
+        {
+          error,
+          title,
+          targetMetre: targetMetreNum,
+          startDate,
+          endDate,
+        },
+        "AdminChallengeScreen"
+      );
       Alert.alert(
         "Error",
         "Failed to create challenge. Please check your permissions."

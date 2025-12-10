@@ -76,7 +76,6 @@ const ProfileScreen: React.FC = () => {
   // --- Event Handlers ---
   const handleSignOut = () => {
     logout();
-    console.log("User signed out!");
   };
 
   const handleRefresh = () => {

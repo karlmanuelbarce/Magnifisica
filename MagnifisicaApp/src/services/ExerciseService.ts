@@ -11,6 +11,7 @@ import {
 } from "@react-native-firebase/firestore";
 
 import { ExerciseTodo } from "../types/ExerciseTodo";
+import { logger } from "../utils/logger";
 
 const db = getFirestore();
 
@@ -24,6 +25,8 @@ export const ExerciseService = {
     onUpdate: (exercises: ExerciseTodo[]) => void,
     onError: (error: Error) => void
   ) => {
+    logger.info("Subscribing to user exercises", { userId }, "ExerciseService");
+
     const collectionRef = collection(db, "exercises_taken_by_user");
     const q = query(collectionRef, where("userID", "==", userId));
 
@@ -45,10 +48,20 @@ export const ExerciseService = {
           }
         );
 
+        logger.debug(
+          `User exercises updated: ${exercisesList.length}`,
+          { userId, count: exercisesList.length },
+          "ExerciseService"
+        );
+
         onUpdate(exercisesList);
       },
       (error) => {
-        console.error("Error in subscribeToUserExercises:", error);
+        logger.error(
+          "Error in subscribeToUserExercises",
+          error,
+          "ExerciseService"
+        );
         onError(error);
       }
     );
@@ -61,8 +74,14 @@ export const ExerciseService = {
     try {
       const docRef = doc(db, "exercises_taken_by_user", exerciseId);
       await updateDoc(docRef, { isDone: !currentStatus });
+
+      logger.success(
+        `Exercise status toggled: ${!currentStatus}`,
+        { exerciseId, oldStatus: currentStatus, newStatus: !currentStatus },
+        "ExerciseService"
+      );
     } catch (error) {
-      console.error("Error toggling exercise status:", error);
+      logger.error("Error toggling exercise status", error, "ExerciseService");
       throw new Error("UPDATE_FAILED");
     }
   },
@@ -74,8 +93,14 @@ export const ExerciseService = {
     try {
       const docRef = doc(db, "exercises_taken_by_user", exerciseId);
       await deleteDoc(docRef);
+
+      logger.success(
+        `Exercise removed: ${exerciseId}`,
+        { exerciseId },
+        "ExerciseService"
+      );
     } catch (error) {
-      console.error("Error removing exercise:", error);
+      logger.error("Error removing exercise", error, "ExerciseService");
       throw new Error("DELETE_FAILED");
     }
   },

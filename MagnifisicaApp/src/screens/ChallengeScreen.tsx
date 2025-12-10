@@ -16,19 +16,28 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ChallengeCard, { Challenge } from "../components/ChallengeCard";
+import { logger } from "../utils/logger";
 
-// --- 3. Get Firestore instance ---
+// --- Get Firestore instance ---
 const db = getFirestore();
 
-// --- 4. Add Notifee helper function (Unchanged) ---
+// --- Notifee helper function ---
 async function displayNotification(title: string, body: string) {
   try {
+    logger.debug(
+      "Requesting notification permission",
+      { title },
+      "ChallengeScreen"
+    );
+
     await notifee.requestPermission();
+
     const channelId = await notifee.createChannel({
       id: "new-challenge",
       name: "New Challenges",
       importance: AndroidImportance.HIGH,
     });
+
     await notifee.displayNotification({
       title: title,
       body: body,
@@ -42,8 +51,18 @@ async function displayNotification(title: string, body: string) {
         sound: "default",
       },
     });
+
+    logger.info(
+      "Notification displayed successfully",
+      { title, body },
+      "ChallengeScreen"
+    );
   } catch (error) {
-    console.error("Error displaying notification:", error);
+    logger.error(
+      "Failed to display notification",
+      { error, title, body },
+      "ChallengeScreen"
+    );
   }
 }
 
@@ -54,21 +73,43 @@ const ChallengeScreen: React.FC = () => {
   const isFirstLoad = useRef(true);
 
   useEffect(() => {
+    logger.info(
+      "Setting up challenges real-time subscription",
+      null,
+      "ChallengeScreen"
+    );
+
     const collectionRef = collection(db, "Challenge");
     const subscriber = onSnapshot(
       collectionRef,
       (querySnapshot) => {
         const challengesList: Challenge[] = [];
 
+        logger.debug(
+          "Challenges snapshot received",
+          {
+            count: querySnapshot.size,
+            isFirstLoad: isFirstLoad.current,
+          },
+          "ChallengeScreen"
+        );
+
         if (!isFirstLoad.current) {
-          // --- FIX 1: Type 'change' as DocumentChange ---
+          // Check for new challenges added
           querySnapshot
             .docChanges()
             .forEach((change: FirebaseFirestoreTypes.DocumentChange) => {
               if (change.type === "added") {
-                // Cast doc.data() to Challenge, as it's the structure we expect
                 const newChallenge = change.doc.data() as Challenge;
-                console.log("New challenge added: ", newChallenge);
+
+                logger.success(
+                  "New challenge detected",
+                  {
+                    challengeId: change.doc.id,
+                    title: newChallenge.title,
+                  },
+                  "ChallengeScreen"
+                );
 
                 displayNotification(
                   "🚀 New Challenge Available!",
@@ -78,33 +119,55 @@ const ChallengeScreen: React.FC = () => {
             });
         }
 
-        // --- FIX 2: Type 'doc' as QueryDocumentSnapshot ---
+        // Build challenges list
         querySnapshot.forEach(
           (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-            // Cast doc.data() to Challenge
             const data = doc.data() as Challenge;
             challengesList.push({
-              ...data, // <-- Spread all data first (including potential inner 'id')
-              id: doc.id, // <-- Explicitly define 'id' using the document ID (which is correct)
+              ...data,
+              id: doc.id,
             } as Challenge);
           }
         );
+
         setChallenges(challengesList);
+
+        logger.debug(
+          "Challenges list updated",
+          { count: challengesList.length },
+          "ChallengeScreen"
+        );
 
         // After the first-ever snapshot is processed, set this to false
         if (isFirstLoad.current) {
+          logger.info(
+            "Initial challenges load complete",
+            { count: challengesList.length },
+            "ChallengeScreen"
+          );
           isFirstLoad.current = false;
         }
 
         setLoading(false);
       },
       (error) => {
-        console.error("Error fetching challenges: ", error);
+        logger.error(
+          "Error fetching challenges from Firestore",
+          error,
+          "ChallengeScreen"
+        );
         setLoading(false);
       }
     );
 
-    return () => subscriber();
+    return () => {
+      logger.debug(
+        "Cleaning up challenges subscription",
+        null,
+        "ChallengeScreen"
+      );
+      subscriber();
+    };
   }, []);
 
   if (loading) {
@@ -135,7 +198,7 @@ const ChallengeScreen: React.FC = () => {
   );
 };
 
-// --- Styles (Unchanged) ---
+// --- Styles ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

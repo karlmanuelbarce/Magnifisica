@@ -5,11 +5,12 @@ import {
   where,
   getDocs,
   addDoc,
-  onSnapshot, // Import onSnapshot for real-time updates
+  onSnapshot,
   FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
 
 import { Exercise } from "../types/Exercise";
+import { logger } from "../utils/logger";
 
 const db = getFirestore();
 
@@ -36,9 +37,15 @@ export const ExerciseLibraryService = {
         }
       );
 
+      logger.success(
+        `Fetched all exercises: ${exercisesList.length}`,
+        { count: exercisesList.length },
+        "ExerciseLibraryService"
+      );
+
       return exercisesList;
     } catch (error) {
-      console.error("Error fetching exercises:", error);
+      logger.error("Error fetching exercises", error, "ExerciseLibraryService");
       throw new Error("FETCH_EXERCISES_FAILED");
     }
   },
@@ -59,9 +66,21 @@ export const ExerciseLibraryService = {
       );
 
       const querySnapshot = await getDocs(q);
-      return !querySnapshot.empty;
+      const exists = !querySnapshot.empty;
+
+      logger.debug(
+        `Exercise existence check: ${exists}`,
+        { userId, exerciseId, exists },
+        "ExerciseLibraryService"
+      );
+
+      return exists;
     } catch (error) {
-      console.error("Error checking exercise existence:", error);
+      logger.error(
+        "Error checking exercise existence",
+        error,
+        "ExerciseLibraryService"
+      );
       throw new Error("CHECK_EXERCISE_FAILED");
     }
   },
@@ -81,6 +100,11 @@ export const ExerciseLibraryService = {
       );
 
       if (exists) {
+        logger.warn(
+          "Exercise already exists for user",
+          { userId, exerciseId: exercise.id, exerciseName: exercise.name },
+          "ExerciseLibraryService"
+        );
         throw new Error("EXERCISE_ALREADY_EXISTS");
       }
 
@@ -97,14 +121,24 @@ export const ExerciseLibraryService = {
         description: exercise.instructions,
         isDone: false,
       });
+
+      logger.success(
+        `Exercise added to user: ${exercise.name}`,
+        { userId, exerciseId: exercise.id, exerciseName: exercise.name },
+        "ExerciseLibraryService"
+      );
     } catch (error) {
-      console.error("Error adding exercise to user:", error);
       if (
         error instanceof Error &&
         error.message === "EXERCISE_ALREADY_EXISTS"
       ) {
         throw error;
       }
+      logger.error(
+        "Error adding exercise to user",
+        error,
+        "ExerciseLibraryService"
+      );
       throw new Error("ADD_EXERCISE_FAILED");
     }
   },
@@ -128,9 +162,19 @@ export const ExerciseLibraryService = {
         }
       );
 
+      logger.success(
+        `Fetched user exercise IDs: ${exerciseIds.length}`,
+        { userId, count: exerciseIds.length },
+        "ExerciseLibraryService"
+      );
+
       return exerciseIds;
     } catch (error) {
-      console.error("Error fetching user exercise IDs:", error);
+      logger.error(
+        "Error fetching user exercise IDs",
+        error,
+        "ExerciseLibraryService"
+      );
       throw new Error("FETCH_USER_EXERCISES_FAILED");
     }
   },
@@ -143,6 +187,12 @@ export const ExerciseLibraryService = {
     onUpdate: (ids: string[]) => void,
     onError: (error: Error) => void
   ) => {
+    logger.info(
+      "Subscribing to user exercise IDs",
+      { userId },
+      "ExerciseLibraryService"
+    );
+
     const userExercisesRef = collection(db, "exercises_taken_by_user");
     const q = query(userExercisesRef, where("userID", "==", userId));
 
@@ -158,10 +208,21 @@ export const ExerciseLibraryService = {
             }
           }
         );
+
+        logger.debug(
+          `User exercise IDs updated: ${exerciseIds.length}`,
+          { userId, count: exerciseIds.length },
+          "ExerciseLibraryService"
+        );
+
         onUpdate(exerciseIds);
       },
       (error) => {
-        console.error("Error subscribing to user exercise IDs:", error);
+        logger.error(
+          "Error subscribing to user exercise IDs",
+          error,
+          "ExerciseLibraryService"
+        );
         onError(error);
       }
     );

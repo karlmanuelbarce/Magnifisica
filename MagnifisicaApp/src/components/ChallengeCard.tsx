@@ -10,6 +10,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 
 import { useAuthStore } from "../store/authstore";
+import { logger } from "../utils/logger";
 
 // --- 2. Get Firestore instance ---
 const db = getFirestore();
@@ -47,10 +48,11 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
   const [isJoined, setIsJoined] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
 
-  // --- useEffect (Unchanged from last time) ---
+  // --- useEffect - Check participation status ---
   useEffect(() => {
     if (!user) {
       setIsChecking(false);
+      logger.debug("No user logged in", null, "ChallengeCard");
       return;
     }
 
@@ -65,14 +67,34 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
     const checkParticipation = async () => {
       setIsChecking(true);
       try {
+        logger.debug(
+          "Checking participation status",
+          { userId: user.uid, challengeId: challenge.id },
+          "ChallengeCard"
+        );
+
         const docSnap = await getDoc(participantRef);
         if (docSnap.exists()) {
           setIsJoined(true);
+          logger.info(
+            "User already joined challenge",
+            { challengeTitle: challenge.title },
+            "ChallengeCard"
+          );
         } else {
           setIsJoined(false);
+          logger.debug(
+            "User has not joined challenge",
+            { challengeTitle: challenge.title },
+            "ChallengeCard"
+          );
         }
       } catch (error) {
-        console.error("Error checking participation: ", error);
+        logger.error(
+          "Error checking participation status",
+          error,
+          "ChallengeCard"
+        );
       } finally {
         setIsChecking(false);
       }
@@ -84,11 +106,22 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
   // --- 3. Refactored handleJoin ---
   const handleJoin = async () => {
     if (!user) {
+      logger.warn("Join attempt without logged in user", null, "ChallengeCard");
       Alert.alert("Error", "You must be logged in to join a challenge.");
       return;
     }
 
     setLoading(true);
+    logger.info(
+      "User attempting to join challenge",
+      {
+        userId: user.uid,
+        challengeId: challenge.id,
+        challengeTitle: challenge.title,
+      },
+      "ChallengeCard"
+    );
+
     try {
       const participantRef = doc(
         db,
@@ -101,7 +134,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
       // Use setDoc(ref, data)
       await setDoc(participantRef, {
         userId: user.uid,
-        joinedAt: serverTimestamp(), // <-- FIX 2: Use it as a function
+        joinedAt: serverTimestamp(),
         displayName: user.email,
         progress: 0,
         isCompleted: false,
@@ -113,13 +146,32 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge }) => {
         targetMetre: challenge.TargetMetre,
       });
 
+      logger.success(
+        "User successfully joined challenge",
+        {
+          userId: user.uid,
+          challengeId: challenge.id,
+          challengeTitle: challenge.title,
+        },
+        "ChallengeCard"
+      );
+
       Alert.alert(
         "Success!",
         `You have joined the "${challenge.title}" challenge.`
       );
       setIsJoined(true);
     } catch (error) {
-      console.error("Error joining challenge:", error);
+      logger.error(
+        "Failed to join challenge",
+        {
+          error,
+          userId: user.uid,
+          challengeId: challenge.id,
+          challengeTitle: challenge.title,
+        },
+        "ChallengeCard"
+      );
       Alert.alert("Error", "Could not join the challenge. Please try again.");
     } finally {
       setLoading(false);

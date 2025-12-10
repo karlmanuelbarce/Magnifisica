@@ -3,6 +3,7 @@ import { useEffect } from "react";
 
 import { ExerciseService } from "../services/ExerciseService";
 import { ExerciseTodo } from "../types/ExerciseTodo";
+import { logger } from "../utils/logger";
 
 // --- Query Keys ---
 export const exerciseKeys = {
@@ -22,22 +23,49 @@ export const useUserExercises = (userId: string | undefined) => {
 
   // 1. Setup Real-time Subscription
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      logger.debug(
+        "No userId provided, skipping exercise subscription",
+        null,
+        "useUserExercises"
+      );
+      return;
+    }
+
+    logger.info(
+      "Setting up real-time exercise subscription",
+      { userId },
+      "useUserExercises"
+    );
 
     // Subscribe to Firestore
     const unsubscribe = ExerciseService.subscribeToUserExercises(
       userId,
       (data) => {
+        logger.debug(
+          "Real-time exercise update received",
+          { userId, count: data.length },
+          "useUserExercises"
+        );
         // When data changes in DB, update React Query cache immediately
         queryClient.setQueryData<ExerciseTodo[]>(queryKey, data);
       },
       (error) => {
-        console.error("❌ Exercise subscription error:", error);
+        logger.error(
+          "Exercise subscription error",
+          { error, userId },
+          "useUserExercises"
+        );
       }
     );
 
     // Cleanup listener when component unmounts or userId changes
     return () => {
+      logger.debug(
+        "Cleaning up exercise subscription",
+        { userId },
+        "useUserExercises"
+      );
       unsubscribe();
     };
   }, [userId, queryClient, queryKey]);
@@ -48,14 +76,33 @@ export const useUserExercises = (userId: string | undefined) => {
     // Initial fetch (wraps subscription for the first load)
     queryFn: async () => {
       if (!userId) return [];
+
+      logger.debug(
+        "Fetching initial exercises",
+        { userId },
+        "useUserExercises"
+      );
+
       return new Promise<ExerciseTodo[]>((resolve, reject) => {
         const unsubscribe = ExerciseService.subscribeToUserExercises(
           userId,
           (data) => {
+            logger.debug(
+              "Initial exercises loaded",
+              { userId, count: data.length },
+              "useUserExercises"
+            );
             resolve(data);
             unsubscribe(); // We only need this for the very first paint
           },
-          (error) => reject(error)
+          (error) => {
+            logger.error(
+              "Failed to fetch initial exercises",
+              { error, userId },
+              "useUserExercises"
+            );
+            reject(error);
+          }
         );
       });
     },
@@ -78,10 +125,23 @@ export const useToggleExercise = () => {
       id: string;
       currentStatus: boolean;
       userId: string;
-    }) => ExerciseService.toggleExerciseStatus(id, currentStatus),
+    }) => {
+      logger.info(
+        "Toggling exercise status",
+        { id, currentStatus, newStatus: !currentStatus },
+        "useToggleExercise"
+      );
+      return ExerciseService.toggleExerciseStatus(id, currentStatus);
+    },
 
     // Update UI immediately
     onMutate: async ({ id, currentStatus, userId }) => {
+      logger.debug(
+        "Applying optimistic update for exercise toggle",
+        { id, userId },
+        "useToggleExercise"
+      );
+
       const queryKey = exerciseKeys.user(userId);
       await queryClient.cancelQueries({ queryKey });
       const previousExercises =
@@ -97,9 +157,23 @@ export const useToggleExercise = () => {
     },
 
     onError: (err, variables, context) => {
+      logger.error(
+        "Failed to toggle exercise, reverting optimistic update",
+        { error: err, id: variables.id, userId: variables.userId },
+        "useToggleExercise"
+      );
+
       if (context?.previousExercises) {
         queryClient.setQueryData(context.queryKey, context.previousExercises);
       }
+    },
+
+    onSuccess: (data, variables) => {
+      logger.success(
+        "Exercise status toggled successfully",
+        { id: variables.id, newStatus: !variables.currentStatus },
+        "useToggleExercise"
+      );
     },
 
     onSettled: (data, error, variables, context) => {
@@ -117,11 +191,19 @@ export const useRemoveExercise = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ exerciseId }: { exerciseId: string; userId: string }) =>
-      ExerciseService.removeUserExercise(exerciseId),
+    mutationFn: ({ exerciseId }: { exerciseId: string; userId: string }) => {
+      logger.info("Removing exercise", { exerciseId }, "useRemoveExercise");
+      return ExerciseService.removeUserExercise(exerciseId);
+    },
 
     // Update UI immediately
     onMutate: async ({ exerciseId, userId }) => {
+      logger.debug(
+        "Applying optimistic update for exercise removal",
+        { exerciseId, userId },
+        "useRemoveExercise"
+      );
+
       const queryKey = exerciseKeys.user(userId);
       await queryClient.cancelQueries({ queryKey });
       const previousExercises =
@@ -135,9 +217,27 @@ export const useRemoveExercise = () => {
     },
 
     onError: (err, variables, context) => {
+      logger.error(
+        "Failed to remove exercise, reverting optimistic update",
+        {
+          error: err,
+          exerciseId: variables.exerciseId,
+          userId: variables.userId,
+        },
+        "useRemoveExercise"
+      );
+
       if (context?.previousExercises) {
         queryClient.setQueryData(context.queryKey, context.previousExercises);
       }
+    },
+
+    onSuccess: (data, variables) => {
+      logger.success(
+        "Exercise removed successfully",
+        { exerciseId: variables.exerciseId },
+        "useRemoveExercise"
+      );
     },
 
     onSettled: (data, error, variables, context) => {

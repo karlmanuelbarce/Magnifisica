@@ -5,6 +5,7 @@ import {
   SaveRouteParams,
   RouteData,
 } from "../services/RouteService";
+import { logger } from "../utils/logger";
 
 // Query Keys - Routes
 export const routeKeys = {
@@ -22,7 +23,16 @@ export const routeKeys = {
 export const useUserRoutes = (userId: string | undefined) => {
   return useQuery({
     queryKey: routeKeys.user(userId!),
-    queryFn: () => RouteService.fetchUserRoutes(userId!),
+    queryFn: async () => {
+      logger.debug("Fetching user routes", { userId }, "useUserRoutes");
+      const routes = await RouteService.fetchUserRoutes(userId!);
+      logger.debug(
+        "User routes fetched",
+        { userId, count: routes.length },
+        "useUserRoutes"
+      );
+      return routes;
+    },
     enabled: !!userId,
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
@@ -39,7 +49,20 @@ export const useRecentRoutes = (
 ) => {
   return useQuery({
     queryKey: routeKeys.recent(userId!, limitCount),
-    queryFn: () => RouteService.fetchRecentRoutes(userId!, limitCount),
+    queryFn: async () => {
+      logger.debug(
+        "Fetching recent routes",
+        { userId, limit: limitCount },
+        "useRecentRoutes"
+      );
+      const routes = await RouteService.fetchRecentRoutes(userId!, limitCount);
+      logger.debug(
+        "Recent routes fetched",
+        { userId, count: routes.length, limit: limitCount },
+        "useRecentRoutes"
+      );
+      return routes;
+    },
     enabled: !!userId,
     staleTime: 1 * 60 * 1000, // 1 minute
     gcTime: 5 * 60 * 1000,
@@ -53,7 +76,20 @@ export const useRecentRoutes = (
 export const useUserRouteStats = (userId: string | undefined) => {
   return useQuery({
     queryKey: routeKeys.stats(userId!),
-    queryFn: () => RouteService.calculateUserStats(userId!),
+    queryFn: async () => {
+      logger.debug(
+        "Calculating user route stats",
+        { userId },
+        "useUserRouteStats"
+      );
+      const stats = await RouteService.calculateUserStats(userId!);
+      logger.debug(
+        "User route stats calculated",
+        { userId, stats },
+        "useUserRouteStats"
+      );
+      return stats;
+    },
     enabled: !!userId,
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 10 * 60 * 1000,
@@ -68,10 +104,19 @@ export const useSaveRoute = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (params: SaveRouteParams) => RouteService.saveRoute(params),
+    mutationFn: (params: SaveRouteParams) => {
+      logger.info("Saving route", { userId: params.userId }, "useSaveRoute");
+      return RouteService.saveRoute(params);
+    },
 
     // Optimistically update
     onMutate: async (params) => {
+      logger.debug(
+        "Applying optimistic update for route save",
+        { userId: params.userId },
+        "useSaveRoute"
+      );
+
       const userRoutesKey = routeKeys.user(params.userId);
       const statsKey = routeKeys.stats(params.userId);
 
@@ -87,7 +132,14 @@ export const useSaveRoute = () => {
     },
 
     onSuccess: (routeId, variables) => {
-      console.log("✅ Route saved successfully:", routeId);
+      logger.success(
+        "Route saved successfully",
+        {
+          routeId,
+          userId: variables.userId,
+        },
+        "useSaveRoute"
+      );
 
       // Invalidate and refetch route-related queries
       queryClient.invalidateQueries({
@@ -104,10 +156,22 @@ export const useSaveRoute = () => {
     },
 
     onError: (error, variables, context) => {
-      console.error("❌ Failed to save route:", error);
+      logger.error(
+        "Failed to save route",
+        {
+          error,
+          userId: variables.userId,
+        },
+        "useSaveRoute"
+      );
 
       // Rollback optimistic updates on error
       if (context?.previousRoutes) {
+        logger.debug(
+          "Reverting optimistic update for route save",
+          { userId: variables.userId },
+          "useSaveRoute"
+        );
         queryClient.setQueryData(context.userRoutesKey, context.previousRoutes);
       }
       if (context?.previousStats) {
@@ -125,16 +189,44 @@ export const useInvalidateRoutes = () => {
   const queryClient = useQueryClient();
 
   return {
-    invalidateAll: () =>
-      queryClient.invalidateQueries({ queryKey: routeKeys.all }),
-    invalidateUser: (userId: string) =>
-      queryClient.invalidateQueries({ queryKey: routeKeys.user(userId) }),
-    invalidateStats: (userId: string) =>
-      queryClient.invalidateQueries({ queryKey: routeKeys.stats(userId) }),
-    invalidateRecent: (userId: string) =>
-      queryClient.invalidateQueries({
+    invalidateAll: () => {
+      logger.debug(
+        "Invalidating all routes cache",
+        null,
+        "useInvalidateRoutes"
+      );
+      return queryClient.invalidateQueries({ queryKey: routeKeys.all });
+    },
+    invalidateUser: (userId: string) => {
+      logger.debug(
+        "Invalidating user routes cache",
+        { userId },
+        "useInvalidateRoutes"
+      );
+      return queryClient.invalidateQueries({
+        queryKey: routeKeys.user(userId),
+      });
+    },
+    invalidateStats: (userId: string) => {
+      logger.debug(
+        "Invalidating user stats cache",
+        { userId },
+        "useInvalidateRoutes"
+      );
+      return queryClient.invalidateQueries({
+        queryKey: routeKeys.stats(userId),
+      });
+    },
+    invalidateRecent: (userId: string) => {
+      logger.debug(
+        "Invalidating recent routes cache",
+        { userId },
+        "useInvalidateRoutes"
+      );
+      return queryClient.invalidateQueries({
         queryKey: [...routeKeys.user(userId), "recent"],
-      }),
+      });
+    },
   };
 };
 
@@ -146,15 +238,19 @@ export const usePrefetchRoutes = () => {
   const queryClient = useQueryClient();
 
   return {
-    prefetchUserRoutes: (userId: string) =>
-      queryClient.prefetchQuery({
+    prefetchUserRoutes: (userId: string) => {
+      logger.debug("Prefetching user routes", { userId }, "usePrefetchRoutes");
+      return queryClient.prefetchQuery({
         queryKey: routeKeys.user(userId),
         queryFn: () => RouteService.fetchUserRoutes(userId),
-      }),
-    prefetchStats: (userId: string) =>
-      queryClient.prefetchQuery({
+      });
+    },
+    prefetchStats: (userId: string) => {
+      logger.debug("Prefetching user stats", { userId }, "usePrefetchRoutes");
+      return queryClient.prefetchQuery({
         queryKey: routeKeys.stats(userId),
         queryFn: () => RouteService.calculateUserStats(userId),
-      }),
+      });
+    },
   };
 };

@@ -5,9 +5,11 @@ import {
   where,
   getDocs,
   orderBy,
-  onSnapshot, // Import onSnapshot
+  onSnapshot,
   FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
+
+import { logger } from "../utils/logger";
 
 const db = getFirestore();
 
@@ -44,6 +46,8 @@ export const ProfileService = {
     onUpdate: (data: WeeklyChartData) => void,
     onError: (error: Error) => void
   ) => {
+    logger.info("Subscribing to weekly activity", { userId }, "ProfileService");
+
     const today = new Date();
     const dayStartTimestamps: Date[] = [];
     const labels: string[] = [];
@@ -94,10 +98,21 @@ export const ProfileService = {
           }
         );
 
+        const totalDistance = data.reduce((sum, val) => sum + val, 0);
+        logger.debug(
+          `Weekly activity updated: ${totalDistance.toFixed(2)}km total`,
+          { userId, totalDistance, routeCount: snapshot.size },
+          "ProfileService"
+        );
+
         onUpdate({ labels, data });
       },
       (error) => {
-        console.error("Error subscribing to weekly activity:", error);
+        logger.error(
+          "Error subscribing to weekly activity",
+          error,
+          "ProfileService"
+        );
         onError(error);
       }
     );
@@ -112,6 +127,12 @@ export const ProfileService = {
     onUpdate: (data: JoinedChallenge[]) => void,
     onError: (error: Error) => void
   ) => {
+    logger.info(
+      "Subscribing to joined challenges",
+      { userId },
+      "ProfileService"
+    );
+
     const challengesRef = collection(
       db,
       "participants",
@@ -124,6 +145,12 @@ export const ProfileService = {
       challengesQuery,
       async (snapshot) => {
         try {
+          logger.debug(
+            `Processing ${snapshot.size} joined challenges`,
+            { userId, challengeCount: snapshot.size },
+            "ProfileService"
+          );
+
           const challengesWithProgress = await Promise.all(
             snapshot.docs.map(
               async (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
@@ -136,8 +163,6 @@ export const ProfileService = {
 
                 if (!challenge.isCompleted) {
                   // Fetch routes for this specific challenge duration
-                  // Note: We use getDocs here to avoid nested listeners overload,
-                  // effectively making this "Reactive to Challenge Changes" but "Pulling Route Data"
                   const challengeRoutesQuery = query(
                     collection(db, "routes"),
                     where("userID", "==", userId),
@@ -157,6 +182,16 @@ export const ProfileService = {
                       totalProgress += routeData.distanceMeters;
                     }
                   );
+
+                  logger.debug(
+                    `Challenge progress calculated: ${challenge.challengeTitle}`,
+                    {
+                      challengeId: challenge.id,
+                      totalProgress,
+                      routeCount: routeSnaps.size,
+                    },
+                    "ProfileService"
+                  );
                 }
 
                 return {
@@ -167,14 +202,28 @@ export const ProfileService = {
             )
           );
 
+          logger.success(
+            `Joined challenges updated: ${challengesWithProgress.length}`,
+            { userId, count: challengesWithProgress.length },
+            "ProfileService"
+          );
+
           onUpdate(challengesWithProgress);
         } catch (err) {
-          console.error("Error calculating progress in subscription:", err);
+          logger.error(
+            "Error calculating progress in subscription",
+            err,
+            "ProfileService"
+          );
           onError(err instanceof Error ? err : new Error("Unknown error"));
         }
       },
       (error) => {
-        console.error("Error subscribing to joined challenges:", error);
+        logger.error(
+          "Error subscribing to joined challenges",
+          error,
+          "ProfileService"
+        );
         onError(error);
       }
     );
@@ -189,11 +238,28 @@ export const ProfileService = {
     onUpdate: (data: ProfileData) => void,
     onError: (error: Error) => void
   ) => {
+    logger.info(
+      "Subscribing to profile data (weekly + challenges)",
+      { userId },
+      "ProfileService"
+    );
+
     let currentWeekly: WeeklyChartData | null = null;
     let currentChallenges: JoinedChallenge[] | null = null;
 
     const checkAndUpdate = () => {
       if (currentWeekly && currentChallenges) {
+        logger.debug(
+          "Profile data merged and ready",
+          {
+            userId,
+            hasWeekly: !!currentWeekly,
+            hasChallenges: !!currentChallenges,
+            challengeCount: currentChallenges.length,
+          },
+          "ProfileService"
+        );
+
         onUpdate({
           weeklyActivity: currentWeekly,
           challenges: currentChallenges,
@@ -221,6 +287,11 @@ export const ProfileService = {
 
     // Return a function that unsubscribes from both
     return () => {
+      logger.debug(
+        "Unsubscribing from profile data",
+        { userId },
+        "ProfileService"
+      );
       unsubWeekly();
       unsubChallenges();
     };
@@ -228,11 +299,21 @@ export const ProfileService = {
 
   // --- Keep Fetch Methods for Initial Server Side Props or non-realtime needs if necessary ---
   fetchWeeklyActivity: async (userId: string): Promise<WeeklyChartData> => {
-    // ... (Implementation same as before if needed, or can just wrap subscribe in a promise)
+    logger.info(
+      "Fetching weekly activity (one-time)",
+      { userId },
+      "ProfileService"
+    );
+
     return new Promise((resolve, reject) => {
       const unsub = ProfileService.subscribeToWeeklyActivity(
         userId,
         (data) => {
+          logger.success(
+            "Weekly activity fetched",
+            { userId },
+            "ProfileService"
+          );
           resolve(data);
           unsub();
         },
@@ -242,10 +323,21 @@ export const ProfileService = {
   },
 
   fetchJoinedChallenges: async (userId: string): Promise<JoinedChallenge[]> => {
+    logger.info(
+      "Fetching joined challenges (one-time)",
+      { userId },
+      "ProfileService"
+    );
+
     return new Promise((resolve, reject) => {
       const unsub = ProfileService.subscribeToJoinedChallenges(
         userId,
         (data) => {
+          logger.success(
+            `Joined challenges fetched: ${data.length}`,
+            { userId, count: data.length },
+            "ProfileService"
+          );
           resolve(data);
           unsub();
         },
@@ -255,10 +347,17 @@ export const ProfileService = {
   },
 
   fetchProfileData: async (userId: string): Promise<ProfileData> => {
+    logger.info(
+      "Fetching profile data (one-time)",
+      { userId },
+      "ProfileService"
+    );
+
     return new Promise((resolve, reject) => {
       const unsub = ProfileService.subscribeToProfileData(
         userId,
         (data) => {
+          logger.success("Profile data fetched", { userId }, "ProfileService");
           resolve(data);
           unsub();
         },

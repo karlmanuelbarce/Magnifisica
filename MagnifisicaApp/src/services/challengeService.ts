@@ -13,6 +13,7 @@ import {
 } from "@react-native-firebase/firestore";
 
 import { Challenge } from "../components/ChallengeCard";
+import { logger } from "../utils/logger";
 
 const db = getFirestore();
 
@@ -28,7 +29,6 @@ class ChallengeService {
       const querySnapshot = await getDocs(collectionRef);
 
       const challenges: Challenge[] = [];
-      // Explicitly type 'doc' here
       querySnapshot.forEach(
         (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
           const data = doc.data();
@@ -39,11 +39,14 @@ class ChallengeService {
         }
       );
 
-      console.log("✅ Fetched challenges:", challenges.length);
+      logger.success(
+        `Fetched challenges: ${challenges.length}`,
+        { count: challenges.length },
+        "ChallengeService"
+      );
       return challenges;
     } catch (error) {
-      console.error("❌ Error fetching challenges:", error);
-
+      logger.error("Error fetching challenges", error, "ChallengeService");
       throw error;
     }
   }
@@ -73,7 +76,11 @@ class ChallengeService {
 
               // Only show notification if we haven't shown it before
               if (!this.notificationShown.has(challengeId)) {
-                console.log("🆕 New challenge detected:", newChallenge.title);
+                logger.info(
+                  `New challenge detected: ${newChallenge.title}`,
+                  { challengeId, title: newChallenge.title },
+                  "ChallengeService"
+                );
                 this.displayNotification(
                   "🚀 New Challenge Available!",
                   newChallenge.title || "Check out the new challenge."
@@ -84,7 +91,6 @@ class ChallengeService {
           });
 
         // Build challenges list
-        // Explicitly type 'doc' here as well
         querySnapshot.forEach(
           (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
             const data = doc.data();
@@ -98,8 +104,11 @@ class ChallengeService {
         onUpdate(challenges);
       },
       (error) => {
-        console.error("❌ Error in challenges subscription:", error);
-
+        logger.error(
+          "Error in challenges subscription",
+          error,
+          "ChallengeService"
+        );
         onError(error as Error);
       }
     );
@@ -124,11 +133,14 @@ class ChallengeService {
         id: docRef.id,
       } as Challenge;
 
-      console.log("✅ Challenge created:", newChallenge.title);
+      logger.success(
+        `Challenge created: ${newChallenge.title}`,
+        { challengeId: docRef.id, title: newChallenge.title },
+        "ChallengeService"
+      );
       return newChallenge;
     } catch (error) {
-      console.error("❌ Error creating challenge:", error);
-
+      logger.error("Error creating challenge", error, "ChallengeService");
       throw error;
     }
   }
@@ -146,10 +158,13 @@ class ChallengeService {
         updatedAt: serverTimestamp(),
       });
 
-      console.log("✅ Challenge updated:", challengeId);
+      logger.success(
+        `Challenge updated: ${challengeId}`,
+        { challengeId, updates },
+        "ChallengeService"
+      );
     } catch (error) {
-      console.error("❌ Error updating challenge:", error);
-
+      logger.error("Error updating challenge", error, "ChallengeService");
       throw error;
     }
   }
@@ -160,9 +175,13 @@ class ChallengeService {
   async deleteChallenge(challengeId: string): Promise<void> {
     try {
       await deleteDoc(doc(db, "Challenge", challengeId));
-      console.log("✅ Challenge deleted:", challengeId);
+      logger.success(
+        `Challenge deleted: ${challengeId}`,
+        { challengeId },
+        "ChallengeService"
+      );
     } catch (error) {
-      console.error("❌ Error deleting challenge:", error);
+      logger.error("Error deleting challenge", error, "ChallengeService");
       throw error;
     }
   }
@@ -196,8 +215,14 @@ class ChallengeService {
           sound: "default",
         },
       });
+
+      logger.debug(
+        `Notification displayed: ${title}`,
+        { title, body },
+        "ChallengeService"
+      );
     } catch (error) {
-      console.error("❌ Error displaying notification:", error);
+      logger.error("Error displaying notification", error, "ChallengeService");
     }
   }
 
@@ -206,6 +231,7 @@ class ChallengeService {
    */
   resetNotifications(): void {
     this.notificationShown.clear();
+    logger.debug("Notification tracking reset", null, "ChallengeService");
   }
 }
 
