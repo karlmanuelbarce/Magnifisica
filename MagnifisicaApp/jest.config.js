@@ -1,15 +1,19 @@
 // jest.config.js
 module.exports = {
-  preset: "react-native",
+  preset: "jest-expo",
   setupFilesAfterEnv: ["<rootDir>/jest-setup.js"],
+
+  // Let jest-expo handle transformations
   transformIgnorePatterns: [
-    "node_modules/(?!(react-native|@react-native|react-native-vector-icons)/)",
+    "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/.*|native-base|react-native-svg|@react-native-firebase|react-native-reanimated|react-native-gesture-handler)",
   ],
+
   collectCoverageFrom: [
     "src/**/*.{js,jsx,ts,tsx}",
     "!src/**/*.d.ts",
-    "!src/**/*.stories.{js,jsx,ts,tsx}",
+    "!src/**/__tests__/**",
   ],
+
   coverageThreshold: {
     global: {
       branches: 80,
@@ -18,14 +22,10 @@ module.exports = {
       statements: 80,
     },
   },
+
+  moduleFileExtensions: ["ts", "tsx", "js", "jsx"],
+
+  moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/src/$1",
+  },
 };
-
-// jest-setup.js
-import "@testing-library/jest-native/extend-expect";
-import "react-native-gesture-handler/jestSetup";
-
-jest.mock("react-native-reanimated", () => {
-  const Reanimated = require("react-native-reanimated/mock");
-  Reanimated.default.call = () => {};
-  return Reanimated;
-});
