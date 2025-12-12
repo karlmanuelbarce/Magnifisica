@@ -14,10 +14,10 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-// --- 1. Import SafeAreaView from the correct package ---
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AuthStackParamList } from "../../navigations/AuthStackNavigator";
+import { logger } from "../../utils/logger";
 
 const auth = getAuth();
 
@@ -28,14 +28,13 @@ const LoginScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = () => {
-    setLoading(true); // Start loading
+    logger.info("User attempting login", { email }, "LoginScreen");
 
-    // --- 4. Use the new modular syntax ---
-    // Pass the 'auth' instance as the first argument
+    setLoading(true);
+
     signInWithEmailAndPassword(auth, email, password)
       .then(() => {
-        console.log("User signed in!");
-        // The useAuthStore will detect the user change and navigate
+        logger.success("User signed in successfully", { email }, "LoginScreen");
       })
       .catch((error) => {
         let errorMessage = "An unknown error occurred.";
@@ -50,46 +49,55 @@ const LoginScreen: React.FC = () => {
           errorMessage = "Invalid login credentials.";
         }
 
+        logger.error(
+          "Login failed",
+          {
+            error,
+            errorCode: error.code,
+            errorMessage,
+            email,
+          },
+          "LoginScreen"
+        );
+
         Alert.alert("Login Failed", errorMessage);
       })
       .finally(() => {
-        setLoading(false); // Stop loading regardless of success or failure
+        setLoading(false);
       });
   };
 
   return (
-    // --- 5. Use SafeAreaView as the root ---
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Text style={styles.title}>Welcome Back</Text>
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor="#888" // So it's visible on dark background
+          placeholderTextColor="#888"
           autoCapitalize="none"
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
-          editable={!loading} // Disable input when loading
+          editable={!loading}
         />
         <TextInput
           style={styles.input}
           placeholder="Password"
-          placeholderTextColor="#888" // So it's visible on dark background
+          placeholderTextColor="#888"
           secureTextEntry
           value={password}
           onChangeText={setPassword}
-          editable={!loading} // Disable input when loading
+          editable={!loading}
         />
 
-        {/* Custom Button for better styling control */}
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleLogin}
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#121212" testID="login-loading" /> // Dark indicator on lime button
+            <ActivityIndicator color="#121212" testID="login-loading" />
           ) : (
             <Text style={styles.buttonText}>Login</Text>
           )}
@@ -107,16 +115,14 @@ const LoginScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  // --- 6. Add safeArea style ---
   safeArea: {
     flex: 1,
-    backgroundColor: "#121212", // Dark background
+    backgroundColor: "#121212",
   },
   container: {
     flex: 1,
     justifyContent: "center",
     padding: 24,
-    // backgroundColor is inherited from safeArea
   },
   title: {
     fontSize: 36,
